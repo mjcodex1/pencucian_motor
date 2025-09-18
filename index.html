@@ -1,0 +1,3971 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wash Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .receipt-preview {
+            width: 58mm;
+            height: auto;
+            min-height: 30mm;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.1;
+            overflow: hidden;
+        }
+        .sidebar-transition {
+            transition: transform 0.3s ease-in-out;
+        }
+        @media print {
+            @page {
+                size: 58mm auto;
+                margin: 0;
+            }
+            body * { 
+                visibility: hidden; 
+            }
+            .receipt-preview, .receipt-preview * { 
+                visibility: visible; 
+            }
+            .receipt-preview { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 58mm;
+                font-size: 8px;
+                line-height: 1.0;
+            }
+        }
+        .thermal-print {
+            width: 58mm;
+            font-family: 'Courier New', monospace;
+            font-size: 8px;
+            line-height: 1.0;
+            margin: 0;
+            padding: 2mm;
+        }
+        .alert {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .vehicle-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .vehicle-option:hover, .vehicle-option.selected {
+            background-color: #f3f4f6;
+        }
+        .vehicle-option.highlighted {
+            background-color: #dbeafe;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-purple-700">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <i class="fas fa-motorcycle text-4xl text-blue-600 mb-4"></i>
+                <h1 class="text-2xl font-bold text-gray-800">Wash Management System</h1>
+                <p class="text-gray-600 mt-2">Sistem Manajemen Cuci Kendaraan</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Masukkan username" autocomplete="off" spellcheck="false" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Masukkan password" required>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200 font-medium">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Masuk
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden min-h-screen flex">
+        <!-- Sidebar -->
+        <div id="sidebar" class="bg-gray-800 text-white w-64 min-h-screen sidebar-transition fixed lg:relative z-40 lg:translate-x-0 -translate-x-full">
+            <div class="p-6">
+                <div class="flex items-center mb-8">
+                    <i class="fas fa-motorcycle text-2xl text-blue-400 mr-3"></i>
+                    <h1 class="text-xl font-bold">WMS</h1>
+                </div>
+                
+                <nav class="space-y-2">
+                    <a href="#" onclick="navigateToSection('dashboard')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="dashboard">
+                        <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
+                    </a>
+                    <a href="#" onclick="navigateToSection('transaction')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="transaction">
+                        <i class="fas fa-cash-register mr-3"></i>Transaksi
+                    </a>
+                    <a href="#" onclick="navigateToSection('services')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="services">
+                        <i class="fas fa-tools mr-3"></i>Jasa Kendaraan
+                    </a>
+                    <a href="#" onclick="navigateToSection('employees')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="employees">
+                        <i class="fas fa-users mr-3"></i>Karyawan
+                    </a>
+                    <a href="#" onclick="navigateToSection('users')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="users">
+                        <i class="fas fa-user-cog mr-3"></i>Manajemen User
+                    </a>
+                    <a href="#" onclick="navigateToSection('settings')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="settings">
+                        <i class="fas fa-cog mr-3"></i>Pengaturan Toko
+                    </a>
+                    <a href="#" onclick="navigateToSection('expenses')" class="nav-item flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition duration-200" data-menu="expenses">
+    <i class="fas fa-wallet mr-3"></i>Kas Keluar
+</a>
+                </nav>
+            </div>
+            
+            <div class="absolute bottom-0 w-64 p-6">
+                <button id="logoutBtn" class="flex items-center px-4 py-3 rounded-lg hover:bg-red-600 transition duration-200 w-full text-left">
+                    <i class="fas fa-sign-out-alt mr-3"></i>Keluar
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar Overlay for Mobile -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden hidden"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col lg:ml-0">
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <button id="sidebarToggle" onclick="toggleSidebar()" class="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h2 id="pageTitle" class="text-xl font-semibold text-gray-800">Dashboard</h2>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-600">Selamat datang, <span id="currentUser">Admin</span></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="flex-1 p-6 overflow-auto">
+                <!-- Dashboard Section -->
+                <div id="dashboardSection" class="section">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                    <i class="fas fa-cash-register text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Transaksi Hari Ini</p>
+                                    <p class="text-2xl font-semibold text-gray-900" id="todayTransactions">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                    <i class="fas fa-money-bill-wave text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Pendapatan Hari Ini</p>
+                                    <p class="text-2xl font-semibold text-gray-900" id="todayRevenue">Rp 0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                    <i class="fas fa-users text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Karyawan Hadir</p>
+                                    <p class="text-2xl font-semibold text-gray-900" id="presentEmployees">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                                    <i class="fas fa-clock text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Belum Bayar</p>
+                                    <p class="text-2xl font-semibold text-gray-900" id="unpaidTransactions">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Section -->
+                <div id="transactionSection" class="section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Transaction Form -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-4">Transaksi Baru</h3>
+                            
+                            <!-- Employee Validation Alert -->
+                            <div id="employeeValidation" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                                <div class="flex items-center">
+                                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-3"></i>
+                                    <div>
+                                        <p class="text-sm font-medium text-yellow-800">Peringatan!</p>
+                                        <p class="text-sm text-yellow-700">Tidak ada karyawan yang hadir. Mohon set kehadiran karyawan terlebih dahulu di menu Karyawan.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <form id="transactionForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Polisi <span class="text-gray-400">(Opsional)</span></label>
+                                    <input type="text" id="plateNumber" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Contoh: B 1234 ABC" autocomplete="off" spellcheck="false">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Kendaraan</label>
+                                    <div class="relative">
+                                        <input type="text" id="vehicleSearch" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ketik untuk mencari jenis kendaraan..." autocomplete="off" spellcheck="false" required>
+                                        <input type="hidden" id="selectedServiceId">
+                                        <div class="absolute right-3 top-3 text-gray-400">
+                                            <i class="fas fa-search"></i>
+                                        </div>
+                                        <div id="vehicleDropdown" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
+                                            <!-- Vehicle options will be populated here -->
+                                        </div>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Gunakan ↑↓ untuk navigasi, Enter untuk memilih, Esc untuk tutup
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Harga</label>
+                                    <input type="number" id="price" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" readonly>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Catatan <span class="text-gray-400">(Opsional)</span></label>
+                                    <textarea id="transactionNotes" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="2" placeholder="Tambahkan catatan khusus..." autocomplete="off" spellcheck="false"></textarea>
+                                </div>
+                                
+                                <!-- Employee Display -->
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <h4 class="text-sm font-medium text-blue-800 mb-2">
+                                        <i class="fas fa-users mr-2"></i>Karyawan Hadir Hari Ini
+                                    </h4>
+                                    <div id="presentEmployeesList" class="text-sm text-blue-700">
+                                        <!-- Present employees will be loaded here -->
+                                    </div>
+                                </div>
+                                
+                                <div class="flex space-x-3">
+                                    <button type="button" onclick="processTransaction('pay')" id="payButton" class="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                        <i class="fas fa-credit-card mr-2"></i>Bayar
+                                    </button>
+                                    <button type="button" onclick="processTransaction('save')" id="saveButton" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                        <i class="fas fa-save mr-2"></i>Simpan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Receipt Preview -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-4">Preview Struk Thermal (58x30mm)</h3>
+                            <div class="receipt-preview bg-gray-50 p-2 rounded border mx-auto" id="receiptPreview">
+                                <div class="text-center mb-1">
+                                    <div class="font-bold text-xs" id="receiptStoreName">WASH MOTOR</div>
+                                    <div class="text-xs" id="receiptStoreAddress">Jl. Contoh No. 123</div>
+                                    <div class="text-xs" id="receiptStorePhone">Telp: 021-12345678</div>
+                                </div>
+                                <div class="border-t border-b border-dashed border-gray-400 py-1 my-1">
+                                    <div class="text-xs">No: <span id="receiptNumber">001</span></div>
+                                    <div class="text-xs">Tanggal: <span id="receiptDate"></span></div>
+                                    <div class="text-xs">Plat: <span id="receiptPlate">-</span></div>
+                                </div>
+                                <div class="text-xs mb-1">
+                                    <div class="flex justify-between">
+                                        <span id="receiptService">Cuci Motor</span>
+                                        <span id="receiptPrice">Rp 0</span>
+                                    </div>
+                                    <div id="receiptNotesSection" class="mt-1 hidden">
+                                        <div class="text-xs text-gray-600">Catatan:</div>
+                                        <div class="text-xs" id="receiptNotes"></div>
+                                    </div>
+                                </div>
+                                <div class="border-t border-dashed border-gray-400 pt-1">
+                                    <div class="flex justify-between font-bold text-xs">
+                                        <span>TOTAL</span>
+                                        <span id="receiptTotal">Rp 0</span>
+                                    </div>
+                                </div>
+                                <div class="text-center text-xs mt-1" id="receiptFooter">
+                                    Terima kasih
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Transaction List -->
+                    <div class="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold">Daftar Transaksi</h3>
+                                <div class="flex items-center space-x-4">
+                                    <button onclick="loadTransactions()" class="text-gray-600 hover:text-gray-800 p-2 rounded-lg hover:bg-gray-100" title="Refresh Data">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Filter Tabs -->
+                            <div class="border-b border-gray-200 mb-6">
+                                <nav class="-mb-px flex space-x-8">
+                                    <button id="paidTabBtn" onclick="switchTransactionView('paid')" class="tab-button active py-3 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600 flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        Sudah Bayar
+                                        <span id="paidTabCount" class="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">0</span>
+                                    </button>
+                                    <button id="unpaidTabBtn" onclick="switchTransactionView('unpaid')" class="tab-button py-3 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                        <i class="fas fa-clock mr-2"></i>
+                                        Belum Bayar
+                                        <span id="unpaidTabCount" class="ml-2 bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">0</span>
+                                    </button>
+                                </nav>
+                            </div>
+                            
+                            <!-- Transaction Filters -->
+                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 space-y-4 lg:space-y-0">
+                                <div class="flex flex-wrap gap-3">
+                                    <select id="statusFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="paid">Sudah Bayar</option>
+                                        <option value="unpaid">Belum Bayar</option>
+                                    </select>
+                                    <select id="paymentFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="">Semua Metode</option>
+                                        <option value="cash">Tunai</option>
+                                        <option value="transfer">Transfer</option>
+                                        <option value="qris">QRIS</option>
+                                    </select>
+                                    <div class="flex items-center space-x-2">
+                                        <label class="text-sm font-medium text-gray-700">Dari:</label>
+                                        <input type="date" id="dateFrom" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <label class="text-sm font-medium text-gray-700">Sampai:</label>
+                                        <input type="date" id="dateTo" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                    <button onclick="resetDateFilter()" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm" title="Reset Filter Tanggal">
+                                        <i class="fas fa-undo mr-1"></i>Reset
+                                    </button>
+                                    <select id="rowsPerPage" class="px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="10">10 per halaman</option>
+                                        <option value="25">25 per halaman</option>
+                                        <option value="50">50 per halaman</option>
+                                    </select>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    Total: <span id="totalCount">0</span> transaksi
+                                </div>
+                            </div>
+                            
+                            <!-- Transaction List -->
+                            <div id="transactionsList" class="space-y-3 min-h-[400px]">
+                                <!-- Transactions will be loaded here -->
+                            </div>
+                            
+                            <!-- Pagination -->
+                            <div id="transactionsPagination" class="flex justify-center items-center space-x-2 mt-6">
+                                <!-- Pagination will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Section -->
+                <div id="servicesSection" class="section hidden">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="p-6">
+                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 space-y-4 lg:space-y-0">
+                                <h3 class="text-lg font-semibold">Jasa Kendaraan</h3>
+                                <div class="flex flex-col lg:flex-row items-start lg:items-center space-y-3 lg:space-y-0 lg:space-x-4 w-full lg:w-auto">
+                                    <div class="relative w-full lg:w-80">
+                                        <input type="text" id="serviceSearchInput" class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Cari jasa kendaraan..." autocomplete="off" spellcheck="false">
+                                        <div class="absolute left-3 top-3 text-gray-400">
+                                            <i class="fas fa-search"></i>
+                                        </div>
+                                    </div>
+                                    <button onclick="showServiceModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 whitespace-nowrap">
+                                        <i class="fas fa-plus mr-2"></i>Tambah Jasa
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Services Table -->
+                            <div class="overflow-x-auto">
+                                <table class="w-full border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-50 border-b border-gray-200">
+                                            <th class="text-left py-3 px-4 font-semibold text-gray-700">No</th>
+                                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Nama Jasa</th>
+                                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Harga</th>
+                                            <th class="text-center py-3 px-4 font-semibold text-gray-700">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="servicesTableBody">
+                                        <!-- Services will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="servicesEmptyState" class="text-center py-12 hidden">
+                                <div class="bg-gray-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-tools text-3xl text-gray-400"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">Belum Ada Jasa</h3>
+                                <p class="text-gray-500 mb-4">Jasa kendaraan yang Anda cari tidak ditemukan</p>
+                                <button onclick="clearServiceSearch()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    <i class="fas fa-times mr-2"></i>Hapus Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employees Section -->
+                <div id="employeesSection" class="section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Employee Management -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="p-6">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h3 class="text-lg font-semibold">Daftar Karyawan</h3>
+                                    <button onclick="showEmployeeModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                                        <i class="fas fa-plus mr-2"></i>Tambah Karyawan
+                                    </button>
+                                </div>
+                                
+                                <div id="employeesList" class="space-y-3">
+                                    <!-- Employees will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Salary Settings -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="p-6">
+                                <h3 class="text-lg font-semibold mb-6">Pengaturan Gaji</h3>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Gaji per Motor</label>
+                                        <input type="number" id="salaryPerMotor" value="7000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    
+                                    <button onclick="updateSalarySettings()" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition duration-200">
+                                        <i class="fas fa-save mr-2"></i>Simpan Pengaturan
+                                    </button>
+                                    
+                                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                                        <h4 class="font-medium mb-2">Ringkasan Gaji Hari Ini</h4>
+                                        <div class="text-sm text-gray-600 space-y-1">
+                                            <div class="flex justify-between">
+                                                <span>Karyawan Hadir:</span>
+                                                <span id="presentCount" class="font-medium">0</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>Total Transaksi:</span>
+                                                <span id="totalTransactions" class="font-medium">0</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>Gaji per Karyawan:</span>
+                                                <span id="salaryPerEmployee" class="font-medium">Rp 0</span>
+                                            </div>
+                                            <div class="border-t pt-2 mt-2">
+                                                <div class="flex justify-between font-semibold text-green-600">
+                                                    <span>Total Gaji:</span>
+                                                    <span id="totalSalary">Rp 0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Attendance Management -->
+                                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                                        <h4 class="font-medium mb-3 text-blue-800">Manajemen Kehadiran</h4>
+                                        <div class="flex space-x-2">
+                                            <button onclick="markAllPresent()" class="flex-1 bg-blue-600 text-white py-2 px-3 rounded text-sm hover:bg-blue-700 transition duration-200">
+                                                <i class="fas fa-user-check mr-1"></i>Semua Hadir
+                                            </button>
+                                            <button onclick="markAllAbsent()" class="flex-1 bg-gray-600 text-white py-2 px-3 rounded text-sm hover:bg-gray-700 transition duration-200">
+                                                <i class="fas fa-user-times mr-1"></i>Semua Tidak Hadir
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div id="usersSection" class="section hidden">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-semibold">Manajemen User</h3>
+                                <button onclick="showUserModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                                    <i class="fas fa-plus mr-2"></i>Tambah User
+                                </button>
+                            </div>
+                            
+                            <div id="usersList" class="space-y-3">
+                                <!-- Users will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settingsSection" class="section hidden">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="p-6">
+                            <h3 class="text-lg font-semibold mb-6">Pengaturan Toko</h3>
+                            
+                            <form id="storeSettingsForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Nama Toko</label>
+                                        <input type="text" id="storeName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="WASH MOTOR">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon</label>
+                                        <input type="text" id="storePhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="021-12345678">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Alamat Toko</label>
+                                    <textarea id="storeAddress" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">Jl. Contoh No. 123</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Toko</label>
+                                    <input type="email" id="storeEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="info@washmotor.com">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Pesan Footer Struk</label>
+                                    <textarea id="receiptFooterMessage" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">Terima kasih atas kunjungan Anda</textarea>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Margin Atas</label>
+                                        <input type="number" id="marginTop" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="5">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Margin Kiri</label>
+                                        <input type="number" id="marginLeft" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="5">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Margin Kanan</label>
+                                        <input type="number" id="marginRight" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="5">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Margin Bawah</label>
+                                        <input type="number" id="marginBottom" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="5">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Font Struk</label>
+                                    <select id="receiptFont" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition duration-200">
+                                    <i class="fas fa-save mr-2"></i>Simpan Pengaturan
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+<!-- ...Kas Keluar... -->
+<div id="expensesSection" class="section hidden">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold mb-4">Kas Keluar</h3>
+        <!-- Form Input Pengeluaran Baru -->
+        <form id="expenseForm" class="space-y-4 mb-8">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
+                <input type="date" id="expenseDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                <select id="expenseCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                    <option value="">Pilih Kategori</option>
+                    <option value="Operasional">Operasional</option>
+                    <option value="Peralatan">Peralatan</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nominal</label>
+                <input type="number" id="expenseAmount" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
+                <input type="text" id="expenseDescription" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Catatan (Opsional)</label>
+                <textarea id="expenseNotes" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                <i class="fas fa-save mr-2"></i>Simpan Pengeluaran
+            </button>
+        </form>
+        <!-- Ringkasan Harian -->
+        <div class="mb-8">
+            <h4 class="text-md font-semibold mb-2">Ringkasan Harian</h4>
+            <div id="expenseSummary" class="text-lg font-bold text-red-600">Rp 0</div>
+            <div id="expenseStats" class="text-sm text-gray-600"></div>
+        </div>
+        <!-- Filter Advanced -->
+        <div class="mb-6 flex flex-wrap gap-3">
+            <input type="date" id="expenseFilterFrom" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Dari">
+            <input type="date" id="expenseFilterTo" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Sampai">
+            <select id="expenseFilterCategory" class="px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="">Semua Kategori</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Peralatan">Peralatan</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Transport">Transport</option>
+                <option value="Lainnya">Lainnya</option>
+            </select>
+            <button onclick="resetExpenseFilter()" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm">
+                <i class="fas fa-undo mr-1"></i>Reset
+            </button>
+        </div>
+        <!-- Daftar Kas Keluar -->
+        <div id="expensesList" class="space-y-3 min-h-[200px]">
+            <!-- Data pengeluaran akan ditampilkan di sini -->
+        </div>
+    </div>
+</div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Pilih Metode Pembayaran</h3>
+            
+            <div class="space-y-3 mb-6" id="paymentMethodButtons">
+                <button onclick="selectPaymentMethod('cash')" class="payment-method-btn w-full p-4 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 flex items-center transition duration-200">
+                    <i class="fas fa-money-bill-wave text-green-600 mr-3 text-xl"></i>
+                    <div class="text-left">
+                        <div class="font-medium">Tunai</div>
+                        <div class="text-sm text-gray-500">Pembayaran dengan uang tunai</div>
+                    </div>
+                </button>
+                <button onclick="selectPaymentMethod('transfer')" class="payment-method-btn w-full p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 flex items-center transition duration-200">
+                    <i class="fas fa-university text-blue-600 mr-3 text-xl"></i>
+                    <div class="text-left">
+                        <div class="font-medium">Transfer Bank</div>
+                        <div class="text-sm text-gray-500">Transfer melalui mobile banking</div>
+                    </div>
+                </button>
+                <button onclick="selectPaymentMethod('qris')" class="payment-method-btn w-full p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 flex items-center transition duration-200">
+                    <i class="fas fa-qrcode text-purple-600 mr-3 text-xl"></i>
+                    <div class="text-left">
+                        <div class="font-medium">QRIS</div>
+                        <div class="text-sm text-gray-500">Scan QR Code untuk bayar</div>
+                    </div>
+                </button>
+            </div>
+            
+            <div id="paymentAmountSection" class="hidden mb-6">
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-gray-600">Total Tagihan:</span>
+                        <span class="text-lg font-bold text-gray-800" id="paymentTotal">Rp 0</span>
+                    </div>
+                    <div class="text-xs text-gray-500">Metode: <span id="selectedMethodText"></span></div>
+                </div>
+                
+                <div id="cashPaymentSection" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Uang Diterima</label>
+                    <input type="number" id="paymentAmount" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg" placeholder="Masukkan jumlah uang">
+                    <div id="changeAmount" class="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg hidden">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-green-700">Kembalian:</span>
+                            <span class="text-lg font-bold text-green-800" id="changeValue">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="nonCashPaymentSection" class="hidden">
+                    <div class="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <i class="fas fa-check-circle text-blue-600 text-2xl mb-2"></i>
+                        <p class="text-sm text-blue-700">Konfirmasi pembayaran telah diterima</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button onclick="closePaymentModal()" class="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                    <i class="fas fa-times mr-2"></i>Batal
+                </button>
+                <button id="confirmPaymentBtn" onclick="confirmPayment()" class="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition duration-200 hidden">
+                    <i class="fas fa-credit-card mr-2"></i>Proses Bayar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Modal -->
+    <div id="serviceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="serviceModalTitle">Tambah Jasa Baru</h3>
+            
+            <form id="serviceForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama Jasa</label>
+                    <input type="text" id="serviceName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Harga</label>
+                    <div class="flex space-x-2 mb-2">
+                        <button type="button" onclick="setServicePrice(20000)" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Rp 20.000</button>
+                        <button type="button" onclick="setServicePrice(25000)" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Rp 25.000</button>
+                        <button type="button" onclick="setServicePrice(28000)" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Rp 28.000</button>
+                    </div>
+                    <input type="number" id="servicePrice" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeServiceModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                        Batal
+                    </button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="employeeModalTitle">Tambah Karyawan Baru</h3>
+            
+            <form id="employeeForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama Karyawan</label>
+                    <input type="text" id="employeeName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon</label>
+                    <input type="text" id="employeePhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeEmployeeModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                        Batal
+                    </button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="userModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="userModalTitle">Tambah User Baru</h3>
+            
+            <form id="userForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="newUsername" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="newPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Jabatan</label>
+                    <select id="userRole" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <option value="">Pilih Jabatan</option>
+                        <option value="admin">Admin</option>
+                        <option value="karyawan">Karyawan</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Akses Menu</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="accessAll" class="mr-2" onchange="toggleAllAccess()">
+                            <span class="text-sm font-medium">Semua Menu</span>
+                        </label>
+                        <div class="ml-4 space-y-1">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="dashboard" class="mr-2">
+                                <span class="text-sm">Dashboard</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="transaction" class="mr-2">
+                                <span class="text-sm">Transaksi</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="services" class="mr-2">
+                                <span class="text-sm">Jasa Kendaraan</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="employees" class="mr-2">
+                                <span class="text-sm">Karyawan</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="users" class="mr-2">
+                                <span class="text-sm">Manajemen User</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="settings" class="mr-2">
+                                <span class="text-sm">Pengaturan Toko</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="menuAccess" value="expenses" class="mr-2">
+                                <span class="text-sm">Kas Keluar</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeUserModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                        Batal
+                    </button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <div class="mb-4">
+                <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check text-2xl text-green-600"></i>
+                </div>
+            </div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">Pembayaran Berhasil!</h3>
+            <p class="text-gray-600 mb-2">Transaksi telah berhasil diproses</p>
+            <div class="text-sm text-gray-500 mb-6">
+                <span id="successTransactionDetails"></span>
+            </div>
+            
+            <div class="space-y-3">
+                <button onclick="printReceipt()" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-print mr-2"></i>Cetak Struk Thermal
+                </button>
+                <div class="flex space-x-3">
+                    <button onclick="printReceiptBrowser()" class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-sm">
+                        <i class="fas fa-file-pdf mr-1"></i>Print Browser
+                    </button>
+                    <button onclick="closeSuccessModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200 text-sm">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+            <div class="mb-4">
+                <i class="fas fa-sign-out-alt text-4xl text-red-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">Konfirmasi Keluar</h3>
+            <p class="text-gray-600 mb-6">Apakah Anda yakin ingin keluar dari sistem?</p>
+            
+            <div class="flex space-x-3">
+                <button onclick="closeLogoutModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                    Batal
+                </button>
+                <button onclick="confirmLogout()" class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Keluar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="editTransactionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Edit Transaksi</h3>
+            
+            <form id="editTransactionForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Polisi</label>
+                    <input type="text" id="editPlateNumber" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Contoh: B 1234 ABC">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Kendaraan</label>
+                    <div class="relative">
+                        <input type="text" id="editVehicleSearch" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ketik untuk mencari jenis kendaraan..." autocomplete="off" spellcheck="false" required>
+                        <input type="hidden" id="editSelectedServiceId">
+                        <div class="absolute right-3 top-3 text-gray-400">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div id="editVehicleDropdown" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
+                            <!-- Vehicle options will be populated here -->
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Gunakan ↑↓ untuk navigasi, Enter untuk memilih, Esc untuk tutup
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Harga</label>
+                    <input type="number" id="editPrice" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" readonly>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Catatan <span class="text-gray-400">(Opsional)</span></label>
+                    <textarea id="editTransactionNotes" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="2" placeholder="Tambahkan catatan khusus..." autocomplete="off" spellcheck="false"></textarea>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeEditTransactionModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                        Batal
+                    </button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://vyyofhgowcpmiiunopyr.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5eW9maGdvd2NwbWlpdW5vcHlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5MDQzOTEsImV4cCI6MjA3MzQ4MDM5MX0.gLBQKYE7bzsdkwP6g1TctQ0ookryOOZTJQvRw5SrXFY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            db: {
+                schema: 'public'
+            },
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            },
+            global: {
+                headers: {
+                    'x-client-info': 'wash-management-system'
+                }
+            }
+        });
+
+        // Global error handler for Supabase timeouts
+        window.addEventListener('unhandledrejection', function(event) {
+            if (event.reason && event.reason.message && event.reason.message.includes('timeout')) {
+                console.warn('⚠️ Supabase timeout detected, retrying operation...');
+                event.preventDefault(); // Prevent the error from being logged
+            }
+        });
+
+        // Global Variables
+        let currentUser = null;
+        let currentTransaction = null;
+        let selectedPaymentMethod = null;
+        let editingServiceId = null;
+        let editingEmployeeId = null;
+        let editingUserId = null;
+        let editingTransactionId = null;
+        let availableServices = [];
+        let selectedServiceIndex = -1;
+        
+        // Transaction view variables
+        let currentTransactionView = 'paid';
+        let currentPage = 1;
+        let rowsPerPage = 10;
+        let totalTransactions = 0;
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            setupEventListeners();
+            
+            // Check if user is already logged in
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    showMainApp();
+                    await loadInitialData();
+                    return;
+                } catch (error) {
+                    localStorage.removeItem('currentUser');
+                }
+            }
+            
+            // Show login screen
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            
+            // Initialize default admin user if not exists
+            await initializeDefaultUser();
+        }
+
+        async function initializeDefaultUser() {
+            try {
+                // Check if admin user exists
+                const { data: existingUser } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', 'admin')
+                    .single();
+                
+                if (!existingUser) {
+                    // Create default admin user
+                    await supabase
+                        .from('users')
+                        .insert([{
+                            username: 'admin',
+                            password: '123',
+                            role: 'admin',
+                            access_menu: ['dashboard', 'transaction', 'services', 'employees', 'users', 'settings', 'expenses'],
+                            is_active: true
+                        }]);
+                }
+            } catch (error) {
+                console.error('Error initializing default user:', error);
+            }
+        }
+
+        function setupEventListeners() {
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Vehicle search functionality
+            setupVehicleSearch();
+            document.getElementById('plateNumber').addEventListener('input', updateReceiptPreview);
+            document.getElementById('transactionNotes').addEventListener('input', updateReceiptPreview);
+            
+            // Store settings form
+            document.getElementById('storeSettingsForm').addEventListener('submit', saveStoreSettings);
+            
+            // Service form
+            document.getElementById('serviceForm').addEventListener('submit', saveService);
+            
+            // Employee form
+            document.getElementById('employeeForm').addEventListener('submit', saveEmployee);
+            
+            // User form
+            document.getElementById('userForm').addEventListener('submit', saveUser);
+            
+            // Edit transaction form
+            document.getElementById('editTransactionForm').addEventListener('submit', saveEditTransaction);
+            setupEditVehicleSearch();
+            
+            // Transaction filters
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                currentTransactionView = this.value;
+                currentPage = 1;
+                loadTransactions();
+                updateTabButtons();
+            });
+            
+            document.getElementById('paymentFilter').addEventListener('change', function() {
+                currentPage = 1;
+                loadTransactions();
+            });
+            
+            document.getElementById('rowsPerPage').addEventListener('change', function() {
+                rowsPerPage = parseInt(this.value);
+                currentPage = 1;
+                loadTransactions();
+            });
+            
+            // Date filters
+            document.getElementById('dateFrom').addEventListener('change', function() {
+                currentPage = 1;
+                loadTransactions();
+            });
+            
+            document.getElementById('dateTo').addEventListener('change', function() {
+                currentPage = 1;
+                loadTransactions();
+            });
+            
+            // Service search
+            document.getElementById('serviceSearchInput').addEventListener('input', function() {
+                filterServices(this.value);
+            });
+            
+            // Payment amount change calculation
+            document.getElementById('paymentAmount').addEventListener('input', calculateChange);
+            
+            // Update receipt date
+            updateReceiptDate();
+            setInterval(updateReceiptDate, 60000); // Update every minute
+        }
+
+        // Vehicle Search Functions
+        function setupVehicleSearch() {
+            const searchInput = document.getElementById('vehicleSearch');
+            const dropdown = document.getElementById('vehicleDropdown');
+            
+            searchInput.addEventListener('input', handleVehicleSearch);
+            searchInput.addEventListener('keydown', handleVehicleKeydown);
+            searchInput.addEventListener('focus', showVehicleDropdown);
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideVehicleDropdown();
+                }
+            });
+        }
+
+        function setupEditVehicleSearch() {
+            const searchInput = document.getElementById('editVehicleSearch');
+            const dropdown = document.getElementById('editVehicleDropdown');
+            
+            searchInput.addEventListener('input', handleEditVehicleSearch);
+            searchInput.addEventListener('keydown', handleEditVehicleKeydown);
+            searchInput.addEventListener('focus', showEditVehicleDropdown);
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideEditVehicleDropdown();
+                }
+            });
+        }
+
+        async function handleVehicleSearch(e) {
+            const query = e.target.value.trim();
+            
+            // Clear previous selection if user is typing
+            if (query !== document.getElementById('vehicleSearch').dataset.selectedName) {
+                document.getElementById('selectedServiceId').value = '';
+                document.getElementById('price').value = '';
+                updateReceiptPreview();
+            }
+            
+            // Only show dropdown when user types something
+            if (query.length === 0) {
+                hideVehicleDropdown();
+                return;
+            }
+            
+            // Only search when user types at least 1 character
+            if (query.length < 1) {
+                hideVehicleDropdown();
+                return;
+            }
+            
+            try {
+                // Use LIKE CONCAT query for better search - only show matching results
+                const { data: filteredServices, error } = await supabase
+                    .from('services')
+                    .select('*')
+                    .eq('is_active', true)
+                    .ilike('name', `%${query}%`)
+                    .order('name')
+                    .limit(10); // Limit results for performance
+                
+                if (error) throw error;
+                
+                displayVehicleOptions(filteredServices || [], query);
+                selectedServiceIndex = -1;
+                showVehicleDropdown();
+                
+            } catch (error) {
+                console.error('Error searching services:', error);
+                // Fallback to local search if database query fails
+                const filteredServices = availableServices.filter(service => 
+                    service.name.toLowerCase().includes(query.toLowerCase())
+                ).slice(0, 10); // Limit results
+                displayVehicleOptions(filteredServices, query);
+                selectedServiceIndex = -1;
+                showVehicleDropdown();
+            }
+        }
+
+        function handleVehicleKeydown(e) {
+            const dropdown = document.getElementById('vehicleDropdown');
+            const options = dropdown.querySelectorAll('.vehicle-option');
+            
+            if (dropdown.classList.contains('hidden')) {
+                if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                    e.preventDefault();
+                    showVehicleDropdown();
+                    return;
+                }
+            }
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedServiceIndex = Math.min(selectedServiceIndex + 1, options.length - 1);
+                    updateHighlight(options);
+                    scrollToHighlighted();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedServiceIndex = Math.max(selectedServiceIndex - 1, -1);
+                    updateHighlight(options);
+                    scrollToHighlighted();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedServiceIndex >= 0 && options[selectedServiceIndex]) {
+                        const serviceId = options[selectedServiceIndex].dataset.serviceId;
+                        const service = availableServices.find(s => s.id == serviceId);
+                        if (service) {
+                            selectVehicleOption(service);
+                        }
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    hideVehicleDropdown();
+                    break;
+                case 'Tab':
+                    hideVehicleDropdown();
+                    break;
+            }
+        }
+
+        function scrollToHighlighted() {
+            const dropdown = document.getElementById('vehicleDropdown');
+            const highlighted = dropdown.querySelector('.vehicle-option.highlighted');
+            if (highlighted) {
+                highlighted.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function updateHighlight(options) {
+            options.forEach((option, index) => {
+                option.classList.toggle('highlighted', index === selectedServiceIndex);
+            });
+        }
+
+        function showVehicleDropdown() {
+            // Don't show all services by default - only show when searching
+            const query = document.getElementById('vehicleSearch').value.trim();
+            if (query.length > 0) {
+                // Will be handled by handleVehicleSearch
+                return;
+            }
+            hideVehicleDropdown();
+        }
+
+        function hideVehicleDropdown() {
+            document.getElementById('vehicleDropdown').classList.add('hidden');
+        }
+
+        function displayVehicleOptions(services, query = '') {
+            const dropdown = document.getElementById('vehicleDropdown');
+            dropdown.innerHTML = '';
+            
+            if (services.length === 0) {
+                dropdown.innerHTML = '<div class="p-3 text-gray-500 text-sm text-center"><i class="fas fa-search mr-2"></i>Tidak ada jenis kendaraan ditemukan</div>';
+            } else {
+                services.forEach((service, index) => {
+                    const option = document.createElement('div');
+                    option.className = 'vehicle-option flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0';
+                    option.dataset.serviceId = service.id;
+                    
+                    // Highlight matching text
+                    let displayName = service.name;
+                    if (query) {
+                        const regex = new RegExp(`(${query})`, 'gi');
+                        displayName = service.name.replace(regex, '<mark class="bg-yellow-200">$1</mark>');
+                    }
+                    
+                    option.innerHTML = `
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">${displayName}</div>
+                            <div class="text-xs text-gray-500">Jasa cuci kendaraan</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-blue-600">${formatCurrency(service.price)}</div>
+                            <div class="text-xs text-gray-400">per unit</div>
+                        </div>
+                    `;
+                    
+                    option.addEventListener('click', () => selectVehicleOption(service));
+                    option.addEventListener('mouseenter', () => {
+                        selectedServiceIndex = index;
+                        updateHighlight(dropdown.querySelectorAll('.vehicle-option'));
+                    });
+                    
+                    dropdown.appendChild(option);
+                });
+            }
+            
+            dropdown.classList.remove('hidden');
+        }
+
+        function selectVehicleOption(service) {
+            const searchInput = document.getElementById('vehicleSearch');
+            searchInput.value = service.name;
+            searchInput.dataset.selectedName = service.name.toLowerCase();
+            document.getElementById('selectedServiceId').value = service.id;
+            document.getElementById('price').value = service.price;
+            hideVehicleDropdown();
+            updateReceiptPreview();
+            
+            // Show success feedback
+            searchInput.classList.add('border-green-500', 'bg-green-50');
+            setTimeout(() => {
+                searchInput.classList.remove('border-green-500', 'bg-green-50');
+            }, 1000);
+        }
+
+        // Edit Vehicle Search Functions
+        async function handleEditVehicleSearch(e) {
+            const query = e.target.value.trim();
+            
+            // Clear previous selection if user is typing
+            if (query !== document.getElementById('editVehicleSearch').dataset.selectedName) {
+                document.getElementById('editSelectedServiceId').value = '';
+                document.getElementById('editPrice').value = '';
+            }
+            
+            // Only show dropdown when user types something
+            if (query.length === 0) {
+                hideEditVehicleDropdown();
+                return;
+            }
+            
+            try {
+                const { data: filteredServices, error } = await supabase
+                    .from('services')
+                    .select('*')
+                    .eq('is_active', true)
+                    .ilike('name', `%${query}%`)
+                    .order('name')
+                    .limit(10);
+                
+                if (error) throw error;
+                
+                displayEditVehicleOptions(filteredServices || [], query);
+                selectedServiceIndex = -1;
+                showEditVehicleDropdown();
+                
+            } catch (error) {
+                console.error('Error searching services:', error);
+                const filteredServices = availableServices.filter(service => 
+                    service.name.toLowerCase().includes(query.toLowerCase())
+                ).slice(0, 10);
+                displayEditVehicleOptions(filteredServices, query);
+                selectedServiceIndex = -1;
+                showEditVehicleDropdown();
+            }
+        }
+
+        function handleEditVehicleKeydown(e) {
+            const dropdown = document.getElementById('editVehicleDropdown');
+            const options = dropdown.querySelectorAll('.vehicle-option');
+            
+            if (dropdown.classList.contains('hidden')) {
+                if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                    e.preventDefault();
+                    showEditVehicleDropdown();
+                    return;
+                }
+            }
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedServiceIndex = Math.min(selectedServiceIndex + 1, options.length - 1);
+                    updateEditHighlight(options);
+                    scrollToEditHighlighted();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedServiceIndex = Math.max(selectedServiceIndex - 1, -1);
+                    updateEditHighlight(options);
+                    scrollToEditHighlighted();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedServiceIndex >= 0 && options[selectedServiceIndex]) {
+                        const serviceId = options[selectedServiceIndex].dataset.serviceId;
+                        const service = availableServices.find(s => s.id == serviceId);
+                        if (service) {
+                            selectEditVehicleOption(service);
+                        }
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    hideEditVehicleDropdown();
+                    break;
+                case 'Tab':
+                    hideEditVehicleDropdown();
+                    break;
+            }
+        }
+
+        function scrollToEditHighlighted() {
+            const dropdown = document.getElementById('editVehicleDropdown');
+            const highlighted = dropdown.querySelector('.vehicle-option.highlighted');
+            if (highlighted) {
+                highlighted.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function updateEditHighlight(options) {
+            options.forEach((option, index) => {
+                option.classList.toggle('highlighted', index === selectedServiceIndex);
+            });
+        }
+
+        function showEditVehicleDropdown() {
+            const query = document.getElementById('editVehicleSearch').value.trim();
+            if (query.length > 0) {
+                return;
+            }
+            hideEditVehicleDropdown();
+        }
+
+        function hideEditVehicleDropdown() {
+            document.getElementById('editVehicleDropdown').classList.add('hidden');
+        }
+
+        function displayEditVehicleOptions(services, query = '') {
+            const dropdown = document.getElementById('editVehicleDropdown');
+            dropdown.innerHTML = '';
+            
+            if (services.length === 0) {
+                dropdown.innerHTML = '<div class="p-3 text-gray-500 text-sm text-center"><i class="fas fa-search mr-2"></i>Tidak ada jenis kendaraan ditemukan</div>';
+            } else {
+                services.forEach((service, index) => {
+                    const option = document.createElement('div');
+                    option.className = 'vehicle-option flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0';
+                    option.dataset.serviceId = service.id;
+                    
+                    let displayName = service.name;
+                    if (query) {
+                        const regex = new RegExp(`(${query})`, 'gi');
+                        displayName = service.name.replace(regex, '<mark class="bg-yellow-200">$1</mark>');
+                    }
+                    
+                    option.innerHTML = `
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">${displayName}</div>
+                            <div class="text-xs text-gray-500">Jasa cuci kendaraan</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-blue-600">${formatCurrency(service.price)}</div>
+                            <div class="text-xs text-gray-400">per unit</div>
+                        </div>
+                    `;
+                    
+                    option.addEventListener('click', () => selectEditVehicleOption(service));
+                    option.addEventListener('mouseenter', () => {
+                        selectedServiceIndex = index;
+                        updateEditHighlight(dropdown.querySelectorAll('.vehicle-option'));
+                    });
+                    
+                    dropdown.appendChild(option);
+                });
+            }
+            
+            dropdown.classList.remove('hidden');
+        }
+
+        function selectEditVehicleOption(service) {
+            const searchInput = document.getElementById('editVehicleSearch');
+            searchInput.value = service.name;
+            searchInput.dataset.selectedName = service.name.toLowerCase();
+            document.getElementById('editSelectedServiceId').value = service.id;
+            document.getElementById('editPrice').value = service.price;
+            hideEditVehicleDropdown();
+            
+            // Show success feedback
+            searchInput.classList.add('border-green-500', 'bg-green-50');
+            setTimeout(() => {
+                searchInput.classList.remove('border-green-500', 'bg-green-50');
+            }, 1000);
+        }
+
+        // Employee Validation
+        async function checkEmployeeValidation() {
+            try {
+                const { data: presentEmployees } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('is_present', true)
+                    .eq('is_active', true);
+                
+                const hasEmployees = presentEmployees && presentEmployees.length > 0;
+                const validationAlert = document.getElementById('employeeValidation');
+                const payButton = document.getElementById('payButton');
+                const saveButton = document.getElementById('saveButton');
+                
+                if (!hasEmployees) {
+                    validationAlert.classList.remove('hidden');
+                    payButton.disabled = true;
+                    saveButton.disabled = true;
+                } else {
+                    validationAlert.classList.add('hidden');
+                    payButton.disabled = false;
+                    saveButton.disabled = false;
+                }
+                
+                return hasEmployees;
+            } catch (error) {
+                console.error('Error checking employee validation:', error);
+                return false;
+            }
+        }
+
+        // Authentication Functions
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showAlert('Username dan password harus diisi!', 'error');
+                return;
+            }
+            
+            try {
+                // First check if user exists
+                const { data: users, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', password);
+                
+                if (userError) {
+                    console.error('Database error:', userError);
+                    showAlert('Terjadi kesalahan saat login', 'error');
+                    return;
+                }
+                
+                if (!users || users.length === 0) {
+                    showAlert('Username atau password salah!', 'error');
+                    return;
+                }
+                
+                const user = users[0];
+                
+                // Check if user is active
+                if (!user.is_active) {
+                    showAlert('Akun Anda telah dinonaktifkan. Hubungi administrator.', 'error');
+                    return;
+                }
+                
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                
+                showMainApp();
+                await loadInitialData();
+                
+                showAlert(`Selamat datang, ${currentUser.username}!`, 'success');
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Terjadi kesalahan saat login', 'error');
+            }
+        }
+
+        function logout() {
+            showLogoutModal();
+        }
+
+        function showLogoutModal() {
+            document.getElementById('logoutModal').classList.remove('hidden');
+            document.getElementById('logoutModal').classList.add('flex');
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').classList.add('hidden');
+            document.getElementById('logoutModal').classList.remove('flex');
+        }
+
+        function confirmLogout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            
+            // Reset forms
+            document.getElementById('loginForm').reset();
+            
+            closeLogoutModal();
+            showAlert('Anda telah berhasil keluar', 'success');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('currentUser').textContent = currentUser.username;
+            
+            // Update sidebar based on user access
+            updateSidebarAccess();
+            
+            navigateToSection('dashboard');
+        }
+
+        function updateSidebarAccess() {
+            const menuItems = document.querySelectorAll('.nav-item');
+            const userAccess = currentUser.access_menu || [];
+            
+            menuItems.forEach(item => {
+                const menuName = item.getAttribute('data-menu');
+                if (menuName && !userAccess.includes(menuName)) {
+                    item.style.display = 'none';
+                } else {
+                    item.style.display = 'flex';
+                }
+            });
+        }
+
+        async function loadExpenses() {
+    const from = document.getElementById('expenseFilterFrom').value;
+    const to = document.getElementById('expenseFilterTo').value;
+    const category = document.getElementById('expenseFilterCategory').value;
+
+    let query = supabase.from('expenses').select('*');
+    if (from) query = query.gte('date', from);
+    if (to) query = query.lte('date', to);
+    if (category) query = query.eq('category', category);
+
+    query = query.order('date', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) {
+        document.getElementById('expensesList').innerHTML = '<div class="text-red-600">Gagal memuat data pengeluaran</div>';
+        return;
+    }
+
+    // Ringkasan
+    const total = data.reduce((sum, e) => sum + e.amount, 0);
+    document.getElementById('expenseSummary').textContent = formatCurrency(total);
+
+    // Statistik kategori
+    const stats = {};
+    data.forEach(e => { stats[e.category] = (stats[e.category] || 0) + e.amount; });
+    document.getElementById('expenseStats').textContent = Object.entries(stats).map(([cat, amt]) => `${cat}: ${formatCurrency(amt)}`).join(' | ');
+
+    // List
+    const list = document.getElementById('expensesList');
+    list.innerHTML = '';
+    if (data.length === 0) {
+        list.innerHTML = '<div class="text-gray-500 text-center py-6">Belum ada pengeluaran</div>';
+    } else {
+        data.forEach(exp => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-red-50';
+            div.innerHTML = `
+                <div>
+                    <div class="font-bold text-red-700">${formatCurrency(exp.amount)}</div>
+                    <div class="text-sm text-gray-700">${exp.category} | ${exp.description}</div>
+                    <div class="text-xs text-gray-500">${exp.date}</div>
+                    ${exp.notes ? `<div class="text-xs text-gray-400 mt-1">Catatan: ${exp.notes}</div>` : ''}
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="editExpense(${exp.id})" class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteExpense(${exp.id})" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+}
+
+document.getElementById('expenseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const date = document.getElementById('expenseDate').value;
+    const category = document.getElementById('expenseCategory').value;
+    const amount = parseInt(document.getElementById('expenseAmount').value);
+    const description = document.getElementById('expenseDescription').value;
+    const notes = document.getElementById('expenseNotes').value;
+
+    const { error } = await supabase.from('expenses').insert([{
+        date, category, amount, description, notes
+    }]);
+    if (error) {
+        showAlert('Gagal menyimpan pengeluaran', 'error');
+    } else {
+        showAlert('Pengeluaran berhasil disimpan', 'success');
+        this.reset();
+        loadExpenses();
+    }
+});
+
+function resetExpenseFilter() {
+    document.getElementById('expenseFilterFrom').value = '';
+    document.getElementById('expenseFilterTo').value = '';
+    document.getElementById('expenseFilterCategory').value = '';
+    loadExpenses();
+}
+
+async function editExpense(id) {
+    const { data, error } = await supabase.from('expenses').select('*').eq('id', id).single();
+    if (error || !data) return showAlert('Data tidak ditemukan', 'error');
+    document.getElementById('expenseDate').value = data.date;
+    document.getElementById('expenseCategory').value = data.category;
+    document.getElementById('expenseAmount').value = data.amount;
+    document.getElementById('expenseDescription').value = data.description;
+    document.getElementById('expenseNotes').value = data.notes || '';
+    // Hapus data lama setelah edit
+    await supabase.from('expenses').delete().eq('id', id);
+    loadExpenses();
+}
+
+async function deleteExpense(id) {
+    if (!confirm('Hapus pengeluaran ini?')) return;
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (error) {
+        showAlert('Gagal menghapus pengeluaran', 'error');
+    } else {
+        showAlert('Pengeluaran berhasil dihapus', 'success');
+        loadExpenses();
+    }
+}
+
+        // Navigation Functions
+        function navigateToSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + 'Section').classList.remove('hidden');
+            
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                transaction: 'Transaksi',
+                services: 'Jasa Kendaraan',
+                employees: 'Karyawan',
+                users: 'Manajemen User',
+                settings: 'Pengaturan Toko',
+                expenses: 'Kas Keluar'
+            };
+            document.getElementById('pageTitle').textContent = titles[sectionName];
+            
+            // Load section-specific data
+            switch(sectionName) {
+                case 'dashboard':
+                    loadDashboardData();
+                    break;
+                case 'transaction':
+                    loadTransactionData();
+                    break;
+                case 'services':
+                    loadServices();
+                    break;
+                case 'employees':
+                    loadEmployees();
+                    loadSalarySettings();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'settings':
+                    loadStoreSettings();
+                    break;
+                case 'expenses':
+                    loadExpenses();
+                    break;
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            // Check if sidebar is currently hidden
+            const isHidden = sidebar.classList.contains('-translate-x-full');
+            
+            if (isHidden) {
+                // Show sidebar
+                sidebar.classList.remove('-translate-x-full');
+                sidebar.classList.add('translate-x-0');
+                if (window.innerWidth < 1024) {
+                    overlay.classList.remove('hidden');
+                }
+            } else {
+                // Hide sidebar
+                sidebar.classList.add('-translate-x-full');
+                sidebar.classList.remove('translate-x-0');
+                if (window.innerWidth < 1024) {
+                    overlay.classList.add('hidden');
+                }
+            }
+        }
+
+        // Data Loading Functions
+        async function loadInitialData() {
+            try {
+                await Promise.all([
+                    loadServices(),
+                    loadEmployees(),
+                    loadSalarySettings()
+                ]);
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Get today's transactions
+                const { data: transactions } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .gte('created_at', today + 'T00:00:00')
+                    .lt('created_at', today + 'T23:59:59');
+                
+                // Get present employees
+                const { data: employees } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('is_present', true)
+                    .eq('is_active', true);
+                
+                const paidTransactions = transactions?.filter(t => t.status === 'paid') || [];
+                const unpaidTransactions = transactions?.filter(t => t.status === 'unpaid') || [];
+                const totalRevenue = paidTransactions.reduce((sum, t) => sum + t.price, 0);
+                
+                document.getElementById('todayTransactions').textContent = paidTransactions.length;
+                document.getElementById('todayRevenue').textContent = formatCurrency(totalRevenue);
+                document.getElementById('presentEmployees').textContent = employees?.length || 0;
+                document.getElementById('unpaidTransactions').textContent = unpaidTransactions.length;
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        async function loadTransactionData() {
+            await checkEmployeeValidation();
+            await loadPresentEmployees();
+            
+            // Set default date filters to today
+            setDefaultDateFilters();
+            
+            // Initialize transaction view
+            currentTransactionView = 'paid';
+            document.getElementById('statusFilter').value = 'paid';
+            await loadTransactions();
+            updateTabButtons();
+        }
+        
+        function setDefaultDateFilters() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateFrom').value = today;
+            document.getElementById('dateTo').value = today;
+        }
+        
+        function resetDateFilter() {
+            setDefaultDateFilters();
+            currentPage = 1;
+            loadTransactions();
+        }
+        
+        async function loadPresentEmployees() {
+            try {
+                const { data: presentEmployees } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('is_present', true)
+                    .eq('is_active', true)
+                    .order('name');
+                
+                const employeesList = document.getElementById('presentEmployeesList');
+                
+                if (!presentEmployees || presentEmployees.length === 0) {
+                    employeesList.innerHTML = '<div class="text-red-600"><i class="fas fa-exclamation-triangle mr-1"></i>Tidak ada karyawan yang hadir</div>';
+                } else {
+                    const employeeNames = presentEmployees.map(emp => emp.name).join(', ');
+                    employeesList.innerHTML = `<div><i class="fas fa-check-circle mr-1"></i>${employeeNames} (${presentEmployees.length} orang)</div>`;
+                }
+                
+            } catch (error) {
+                console.error('Error loading present employees:', error);
+                document.getElementById('presentEmployeesList').innerHTML = '<div class="text-red-600">Gagal memuat data karyawan</div>';
+            }
+        }
+
+        async function loadServices() {
+            try {
+                const { data, error } = await supabase
+                    .from('services')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('name');
+                
+                if (error) throw error;
+                
+                availableServices = data || [];
+                
+                // Update services table
+                displayServicesTable(availableServices);
+                
+                // Update edit transaction dropdown
+                updateEditTransactionDropdown();
+                
+            } catch (error) {
+                console.error('Error loading services:', error);
+            }
+        }
+
+        function displayServicesTable(services) {
+            const tableBody = document.getElementById('servicesTableBody');
+            const emptyState = document.getElementById('servicesEmptyState');
+            
+            tableBody.innerHTML = '';
+            
+            if (!services || services.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            services.forEach((service, index) => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors';
+                row.innerHTML = `
+                    <td class="py-4 px-4 text-gray-700 font-medium">${index + 1}</td>
+                    <td class="py-4 px-4">
+                        <div class="font-medium text-gray-900">${service.name}</div>
+                        <div class="text-sm text-gray-500">Jasa cuci kendaraan</div>
+                    </td>
+                    <td class="py-4 px-4">
+                        <span class="font-semibold text-blue-600">${formatCurrency(service.price)}</span>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="showServiceModal(${service.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-100 transition-colors" title="Edit Jasa">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteService(${service.id})" class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-100 transition-colors" title="Hapus Jasa">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function filterServices(searchTerm) {
+            const filteredServices = availableServices.filter(service =>
+                service.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            displayServicesTable(filteredServices);
+        }
+
+        function clearServiceSearch() {
+            document.getElementById('serviceSearchInput').value = '';
+            displayServicesTable(availableServices);
+        }
+
+        function updateEditTransactionDropdown() {
+            const editSelect = document.getElementById('editVehicleType');
+            editSelect.innerHTML = '<option value="">Pilih Jenis Kendaraan</option>';
+            
+            availableServices.forEach(service => {
+                const option = document.createElement('option');
+                option.value = service.id;
+                option.textContent = `${service.name} - ${formatCurrency(service.price)}`;
+                option.dataset.price = service.price;
+                editSelect.appendChild(option);
+            });
+        }
+
+        async function loadEmployees() {
+            try {
+                const { data, error } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('name');
+                
+                if (error) throw error;
+                
+                const employeesList = document.getElementById('employeesList');
+                employeesList.innerHTML = '';
+                
+                if (!data || data.length === 0) {
+                    employeesList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-users text-4xl mb-4"></i>
+                            <p>Belum ada karyawan yang terdaftar</p>
+                        </div>
+                    `;
+                } else {
+                    data.forEach(employee => {
+                        const employeeItem = createEmployeeItem(employee);
+                        employeesList.appendChild(employeeItem);
+                    });
+                }
+                
+                await updateSalarySummary();
+                
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .order('username');
+                
+                if (error) throw error;
+                
+                const usersList = document.getElementById('usersList');
+                usersList.innerHTML = '';
+                
+                if (!data || data.length === 0) {
+                    usersList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-user-cog text-4xl mb-4"></i>
+                            <p>Belum ada user yang terdaftar</p>
+                        </div>
+                    `;
+                } else {
+                    data.forEach(user => {
+                        const userItem = createUserItem(user);
+                        usersList.appendChild(userItem);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        async function loadTransactions() {
+            try {
+                console.log('🔄 Loading transactions for view:', currentTransactionView);
+                
+                const paymentFilter = document.getElementById('paymentFilter').value;
+                const dateFrom = document.getElementById('dateFrom').value;
+                const dateTo = document.getElementById('dateTo').value;
+                
+                // Build query with filters - only include services data
+                let countQuery = supabase
+                    .from('transactions')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', currentTransactionView);
+                
+                let dataQuery = supabase
+                    .from('transactions')
+                    .select(`
+                        *, 
+                        services(name)
+                    `)
+                    .eq('status', currentTransactionView);
+                
+                // Apply date filters if set
+                if (dateFrom) {
+                    countQuery = countQuery.gte('created_at', dateFrom + 'T00:00:00');
+                    dataQuery = dataQuery.gte('created_at', dateFrom + 'T00:00:00');
+                }
+                if (dateTo) {
+                    countQuery = countQuery.lte('created_at', dateTo + 'T23:59:59');
+                    dataQuery = dataQuery.lte('created_at', dateTo + 'T23:59:59');
+                }
+                
+                // Apply payment method filter if selected and viewing paid transactions
+                if (paymentFilter && currentTransactionView === 'paid') {
+                    countQuery = countQuery.eq('payment_method', paymentFilter);
+                    dataQuery = dataQuery.eq('payment_method', paymentFilter);
+                }
+                
+                // Get total count first
+                const { count: totalCount } = await countQuery;
+                totalTransactions = totalCount || 0;
+                
+                // Update counts in UI
+                document.getElementById('totalCount').textContent = totalTransactions;
+                if (currentTransactionView === 'paid') {
+                    document.getElementById('paidTabCount').textContent = totalTransactions;
+                } else {
+                    document.getElementById('unpaidTabCount').textContent = totalTransactions;
+                }
+                
+                // Get paginated data
+                const offset = (currentPage - 1) * rowsPerPage;
+                const { data, error } = await dataQuery
+                    .order('created_at', { ascending: false })
+                    .range(offset, offset + rowsPerPage - 1);
+                
+                if (error) throw error;
+                
+                console.log('📊 Transactions loaded:', data?.length || 0, 'items');
+                
+                const transactionsList = document.getElementById('transactionsList');
+                transactionsList.innerHTML = '';
+                
+                if (!data || data.length === 0) {
+                    const isPaid = currentTransactionView === 'paid';
+                    const filterText = paymentFilter && isPaid ? ` dengan metode ${paymentFilter}` : '';
+                    const iconClass = isPaid ? 'fas fa-receipt text-green-600' : 'fas fa-clock text-orange-400';
+                    const bgClass = isPaid ? 'bg-green-100' : 'bg-orange-100';
+                    const statusText = isPaid ? 'sudah dibayar' : 'belum dibayar';
+                    
+                    transactionsList.innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="${bgClass} rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                                <i class="${iconClass} text-3xl"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Belum Ada Transaksi</h3>
+                            <p class="text-gray-500">Transaksi yang ${statusText}${filterText} akan muncul di sini</p>
+                            <button onclick="loadTransactions()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-refresh mr-2"></i>Refresh Data
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // Create a document fragment for better performance
+                    const fragment = document.createDocumentFragment();
+                    
+                    data.forEach((transaction, index) => {
+                        console.log(`📝 Creating transaction item ${index + 1}:`, {
+                            id: transaction.id,
+                            plate: transaction.plate_number,
+                            service: transaction.services?.name,
+                            price: transaction.price,
+                            status: transaction.status
+                        });
+                        
+                        const isPaid = transaction.status === 'paid';
+                        const rowNumber = (currentPage - 1) * rowsPerPage + index + 1;
+                        const transactionItem = createTransactionItem(transaction, isPaid, rowNumber);
+                        fragment.appendChild(transactionItem);
+                    });
+                    
+                    // Append all items at once
+                    transactionsList.appendChild(fragment);
+                }
+                
+                // Update pagination
+                updatePagination();
+                
+                console.log('✅ Transactions UI updated successfully');
+                
+            } catch (error) {
+                console.error('❌ Error loading transactions:', error);
+                const transactionsList = document.getElementById('transactionsList');
+                transactionsList.innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <h3 class="text-lg font-medium mb-2">Gagal Memuat Data</h3>
+                        <p class="text-sm mb-4">${error.message}</p>
+                        <button onclick="loadTransactions()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            <i class="fas fa-redo mr-2"></i>Coba Lagi
+                        </button>
+                    </div>
+                `;
+                
+                // Set counts to 0 on error
+                document.getElementById('totalCount').textContent = '0';
+                if (currentTransactionView === 'paid') {
+                    document.getElementById('paidTabCount').textContent = '0';
+                } else {
+                    document.getElementById('unpaidTabCount').textContent = '0';
+                }
+            }
+        }
+
+        async function loadSalarySettings() {
+            try {
+                const { data, error } = await supabase
+                    .from('salary_settings')
+                    .select('*')
+                    .single();
+                
+                if (data) {
+                    document.getElementById('salaryPerMotor').value = data.salary_per_motor || 7000;
+                }
+                
+                await updateSalarySummary();
+                
+            } catch (error) {
+                console.error('Error loading salary settings:', error);
+                document.getElementById('salaryPerMotor').value = 7000;
+            }
+        }
+
+        async function loadStoreSettings() {
+            try {
+                const { data, error } = await supabase
+                    .from('store_settings')
+                    .select('*')
+                    .single();
+                
+                if (data) {
+                    document.getElementById('storeName').value = data.name || 'WASH MOTOR';
+                    document.getElementById('storeAddress').value = data.address || 'Jl. Contoh No. 123';
+                    document.getElementById('storePhone').value = data.phone || '021-12345678';
+                    document.getElementById('storeEmail').value = data.email || 'info@washmotor.com';
+                    document.getElementById('receiptFooterMessage').value = data.footer_message || 'Terima kasih atas kunjungan Anda';
+                    document.getElementById('marginTop').value = data.margin_top || 5;
+                    document.getElementById('marginLeft').value = data.margin_left || 5;
+                    document.getElementById('marginRight').value = data.margin_right || 5;
+                    document.getElementById('marginBottom').value = data.margin_bottom || 5;
+                    document.getElementById('receiptFont').value = data.font || 'Courier New';
+                }
+                
+            } catch (error) {
+                console.error('Error loading store settings:', error);
+            }
+        }
+
+        // Transaction Functions
+        function updateReceiptPreview() {
+            const plateNumber = document.getElementById('plateNumber').value;
+            const vehicleSearch = document.getElementById('vehicleSearch').value;
+            const price = document.getElementById('price').value;
+            
+            document.getElementById('receiptPlate').textContent = plateNumber || '-';
+            document.getElementById('receiptService').textContent = vehicleSearch || 'Cuci Motor';
+            document.getElementById('receiptPrice').textContent = price ? formatCurrency(parseInt(price)) : 'Rp 0';
+            document.getElementById('receiptTotal').textContent = price ? formatCurrency(parseInt(price)) : 'Rp 0';
+            
+            // Notes are never shown in receipt - always hidden
+            const notesSection = document.getElementById('receiptNotesSection');
+            notesSection.classList.add('hidden');
+        }
+
+        function updateReceiptDate() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID');
+            document.getElementById('receiptDate').textContent = dateStr;
+        }
+
+        async function processTransaction(type) {
+            console.log('🚀 Processing transaction type:', type);
+            
+            const plateNumber = document.getElementById('plateNumber').value;
+            const serviceId = document.getElementById('selectedServiceId').value;
+            const price = document.getElementById('price').value;
+            
+            console.log('📝 Form data:', { plateNumber, serviceId, price });
+            
+            if (!serviceId || !price) {
+                showAlert('Mohon pilih jenis kendaraan terlebih dahulu', 'error');
+                return;
+            }
+            
+            // Check employee validation
+            const hasEmployees = await checkEmployeeValidation();
+            if (!hasEmployees) {
+                showAlert('Tidak ada karyawan yang hadir. Mohon set kehadiran karyawan terlebih dahulu.', 'error');
+                return;
+            }
+            
+            const notes = document.getElementById('transactionNotes').value.trim();
+            
+            // Get present employees for this transaction
+            const { data: presentEmployees } = await supabase
+                .from('employees')
+                .select('id, name')
+                .eq('is_present', true)
+                .eq('is_active', true);
+            
+            const employeeIds = presentEmployees ? presentEmployees.map(emp => emp.id) : [];
+            const employeeNames = presentEmployees ? presentEmployees.map(emp => emp.name) : [];
+            
+            currentTransaction = {
+                plate_number: plateNumber || null,
+                service_id: parseInt(serviceId),
+                price: parseInt(price),
+                notes: notes || null,
+                status: type === 'pay' ? 'paid' : 'unpaid',
+                created_by: currentUser.id,
+                employee_ids: employeeIds,
+                employee_names: employeeNames
+            };
+            
+            console.log('💾 Transaction object created:', currentTransaction);
+            
+            if (type === 'pay') {
+                showPaymentModal();
+            } else {
+                console.log('💰 Saving unpaid transaction...');
+                await saveTransaction();
+            }
+        }
+
+        function showPaymentModal() {
+            document.getElementById('paymentModal').classList.remove('hidden');
+            document.getElementById('paymentModal').classList.add('flex');
+            document.getElementById('paymentTotal').textContent = formatCurrency(currentTransaction.price);
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.add('hidden');
+            document.getElementById('paymentModal').classList.remove('flex');
+            document.getElementById('paymentAmountSection').classList.add('hidden');
+            document.getElementById('confirmPaymentBtn').classList.add('hidden');
+            document.getElementById('cashPaymentSection').classList.add('hidden');
+            document.getElementById('nonCashPaymentSection').classList.add('hidden');
+            document.getElementById('changeAmount').classList.add('hidden');
+            
+            // Reset payment method buttons
+            document.querySelectorAll('.payment-method-btn').forEach(btn => {
+                btn.classList.remove('border-green-500', 'border-blue-500', 'border-purple-500', 'bg-green-50', 'bg-blue-50', 'bg-purple-50');
+                btn.classList.add('border-gray-300');
+            });
+            
+            // Reset form
+            document.getElementById('paymentAmount').value = '';
+            selectedPaymentMethod = null;
+        }
+
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            
+            // Update button styles
+            document.querySelectorAll('.payment-method-btn').forEach(btn => {
+                btn.classList.remove('border-green-500', 'border-blue-500', 'border-purple-500', 'bg-green-50', 'bg-blue-50', 'bg-purple-50');
+                btn.classList.add('border-gray-300');
+            });
+            
+            const selectedBtn = event.target.closest('.payment-method-btn');
+            if (method === 'cash') {
+                selectedBtn.classList.add('border-green-500', 'bg-green-50');
+            } else if (method === 'transfer') {
+                selectedBtn.classList.add('border-blue-500', 'bg-blue-50');
+            } else if (method === 'qris') {
+                selectedBtn.classList.add('border-purple-500', 'bg-purple-50');
+            }
+            
+            // Show payment section
+            document.getElementById('paymentAmountSection').classList.remove('hidden');
+            document.getElementById('confirmPaymentBtn').classList.remove('hidden');
+            
+            // Update method text
+            const methodTexts = {
+                cash: 'Tunai',
+                transfer: 'Transfer Bank',
+                qris: 'QRIS'
+            };
+            document.getElementById('selectedMethodText').textContent = methodTexts[method];
+            
+            // Show appropriate payment section
+            if (method === 'cash') {
+                document.getElementById('cashPaymentSection').classList.remove('hidden');
+                document.getElementById('nonCashPaymentSection').classList.add('hidden');
+                document.getElementById('paymentAmount').value = currentTransaction.price;
+                document.getElementById('paymentAmount').focus();
+                calculateChange();
+            } else {
+                document.getElementById('cashPaymentSection').classList.add('hidden');
+                document.getElementById('nonCashPaymentSection').classList.remove('hidden');
+            }
+        }
+
+        function calculateChange() {
+            const paymentAmount = parseInt(document.getElementById('paymentAmount').value) || 0;
+            const total = currentTransaction.price;
+            const change = paymentAmount - total;
+            
+            const changeDiv = document.getElementById('changeAmount');
+            const changeValue = document.getElementById('changeValue');
+            const confirmBtn = document.getElementById('confirmPaymentBtn');
+            
+            if (change >= 0) {
+                changeValue.textContent = formatCurrency(change);
+                changeDiv.classList.remove('hidden');
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                confirmBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            } else {
+                changeDiv.classList.add('hidden');
+                confirmBtn.disabled = true;
+                confirmBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                confirmBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            }
+        }
+
+        async function confirmPayment() {
+            let paymentAmount = currentTransaction.price;
+            
+            if (selectedPaymentMethod === 'cash') {
+                paymentAmount = parseInt(document.getElementById('paymentAmount').value) || 0;
+                
+                if (paymentAmount < currentTransaction.price) {
+                    showAlert('Jumlah pembayaran tidak mencukupi', 'error');
+                    return;
+                }
+            }
+            
+            currentTransaction.payment_method = selectedPaymentMethod;
+            currentTransaction.payment_amount = paymentAmount;
+            
+            // Show loading state
+            const confirmBtn = document.getElementById('confirmPaymentBtn');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+            confirmBtn.disabled = true;
+            
+            try {
+                console.log('💳 Confirming payment for transaction:', currentTransaction);
+                
+                // Check if this is an existing transaction (has ID) or new transaction
+                if (currentTransaction.id) {
+                    console.log('🔄 Updating existing unpaid transaction to paid...');
+                    
+                    // Get current present employees for payment update
+                    const { data: presentEmployees } = await supabase
+                        .from('employees')
+                        .select('id, name')
+                        .eq('is_present', true)
+                        .eq('is_active', true);
+                    
+                    const employeeIds = presentEmployees ? presentEmployees.map(emp => emp.id) : [];
+                    const employeeNames = presentEmployees ? presentEmployees.map(emp => emp.name) : [];
+                    
+                    // Update existing transaction from unpaid to paid
+                    const { data, error } = await supabase
+                        .from('transactions')
+                        .update({
+                            status: 'paid',
+                            payment_method: selectedPaymentMethod,
+                            payment_amount: paymentAmount,
+                            paid_at: new Date().toISOString(),
+                            employee_ids: employeeIds,
+                            employee_names: employeeNames
+                        })
+                        .eq('id', currentTransaction.id)
+                        .select('*, services(name)')
+                        .single();
+                    
+                    if (error) {
+                        console.error('❌ Error updating transaction:', error);
+                        throw error;
+                    }
+                    
+                    console.log('✅ Transaction updated successfully:', data);
+                    
+                    // Update currentTransaction with the latest data
+                    currentTransaction = { ...currentTransaction, ...data };
+                    
+                    // Reload transactions and dashboard data
+                    await Promise.all([
+                        loadTransactions(),
+                        loadDashboardData()
+                    ]);
+                    
+                    // Switch to paid view to show the updated transaction
+                    switchTransactionView('paid');
+                    
+                } else {
+                    console.log('💾 Saving new paid transaction...');
+                    // Save new transaction
+                    await saveTransaction();
+                }
+                
+                closePaymentModal();
+                
+                // Update success modal with transaction details
+                const serviceName = currentTransaction.services?.name || 
+                                 availableServices.find(s => s.id == currentTransaction.service_id)?.name || 
+                                 'Layanan';
+                const methodText = {
+                    cash: 'Tunai',
+                    transfer: 'Transfer Bank', 
+                    qris: 'QRIS'
+                }[selectedPaymentMethod];
+                
+                document.getElementById('successTransactionDetails').innerHTML = `
+                    ${serviceName} - ${formatCurrency(currentTransaction.price)}<br>
+                    Metode: ${methodText}
+                    ${selectedPaymentMethod === 'cash' && paymentAmount > currentTransaction.price ? 
+                        `<br>Kembalian: ${formatCurrency(paymentAmount - currentTransaction.price)}` : ''}
+                `;
+                
+                showSuccessModal();
+                
+                console.log('✅ Payment process completed successfully');
+                
+            } catch (error) {
+                console.error('❌ Payment error:', error);
+                showAlert(`Gagal memproses pembayaran: ${error.message}`, 'error');
+            } finally {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        }
+
+        async function saveTransaction() {
+            try {
+                console.log('🔄 Saving transaction with data:', currentTransaction);
+                
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .insert([currentTransaction])
+                    .select('*, services(name)')
+                    .single();
+                
+                if (error) throw error;
+                
+                console.log('✅ Transaction saved:', data);
+                
+                // Reset form
+                document.getElementById('transactionForm').reset();
+                document.getElementById('vehicleSearch').value = '';
+                document.getElementById('vehicleSearch').dataset.selectedName = '';
+                document.getElementById('selectedServiceId').value = '';
+                document.getElementById('price').value = '';
+                document.getElementById('transactionNotes').value = '';
+                updateReceiptPreview();
+                
+                // Reload transactions and dashboard data
+                await Promise.all([
+                    loadTransactions(),
+                    loadDashboardData()
+                ]);
+                
+                // Switch to appropriate view and show success message
+                if (currentTransaction.status === 'unpaid') {
+                    switchTransactionView('unpaid');
+                    showAlert('Transaksi berhasil disimpan ke daftar belum bayar', 'success');
+                } else {
+                    switchTransactionView('paid');
+                    showAlert('Transaksi berhasil dibayar', 'success');
+                }
+                
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                showAlert('Gagal menyimpan transaksi: ' + error.message, 'error');
+            }
+        }
+
+        function showSuccessModal() {
+            document.getElementById('successModal').classList.remove('hidden');
+            document.getElementById('successModal').classList.add('flex');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+            document.getElementById('successModal').classList.remove('flex');
+        }
+
+        function printReceipt() {
+            // Try to connect to Bluetooth printer
+            if ('bluetooth' in navigator) {
+                printToBluetooth();
+            } else {
+                // Fallback to browser print
+                printReceiptBrowser();
+            }
+            closeSuccessModal();
+        }
+
+        function printReceiptBrowser() {
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank', 'width=220,height=400');
+            const receiptContent = generateReceiptHTML();
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Struk Pembayaran</title>
+                    <style>
+                        @page {
+                            size: 58mm auto;
+                            margin: 0;
+                        }
+                        body { 
+                            font-family: 'Courier New', monospace; 
+                            font-size: 8px; 
+                            line-height: 1.0;
+                            margin: 0; 
+                            padding: 2mm;
+                            width: 54mm;
+                        }
+                        .center { text-align: center; }
+                        .bold { font-weight: bold; }
+                        .line { border-top: 1px dashed #000; margin: 2px 0; }
+                        .flex { display: flex; justify-content: space-between; }
+                        .notes { margin: 2px 0; font-size: 7px; }
+                    </style>
+                </head>
+                <body class="thermal-print">
+                    ${receiptContent}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        }
+
+        function generateReceiptHTML() {
+            const storeName = document.getElementById('receiptStoreName').textContent;
+            const storeAddress = document.getElementById('receiptStoreAddress').textContent;
+            const storePhone = document.getElementById('receiptStorePhone').textContent;
+            const receiptNumber = document.getElementById('receiptNumber').textContent;
+            const receiptDate = document.getElementById('receiptDate').textContent;
+            const receiptPlate = document.getElementById('receiptPlate').textContent;
+            const receiptService = document.getElementById('receiptService').textContent;
+            const receiptPrice = document.getElementById('receiptPrice').textContent;
+            const receiptTotal = document.getElementById('receiptTotal').textContent;
+            const receiptFooter = document.getElementById('receiptFooter').textContent;
+            
+            return `
+                <div class="center bold">${storeName}</div>
+                <div class="center">${storeAddress}</div>
+                <div class="center">${storePhone}</div>
+                <div class="line"></div>
+                <div>No: ${receiptNumber}</div>
+                <div>Tanggal: ${receiptDate}</div>
+                <div>Plat: ${receiptPlate}</div>
+                <div class="line"></div>
+                <div class="flex">
+                    <span>${receiptService}</span>
+                    <span>${receiptPrice}</span>
+                </div>
+                <div class="line"></div>
+                <div class="flex bold">
+                    <span>TOTAL</span>
+                    <span>${receiptTotal}</span>
+                </div>
+                <div class="line"></div>
+                <div class="center">${receiptFooter}</div>
+            `;
+        }
+
+        async function printToBluetooth() {
+            try {
+                // Check if Bluetooth is available
+                if (!navigator.bluetooth) {
+                    throw new Error('Bluetooth tidak didukung di browser ini');
+                }
+
+                // Request device with proper filters for thermal printers
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '000018f0-0000-1000-8000-00805f9b34fb', // Common thermal printer service
+                        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // Another common service
+                        '0000ff00-0000-1000-8000-00805f9b34fb'  // Generic printer service
+                    ]
+                });
+                
+                if (!device.gatt) {
+                    throw new Error('Perangkat tidak mendukung GATT');
+                }
+
+                showAlert('Menghubungkan ke printer...', 'info');
+                const server = await device.gatt.connect();
+                
+                // Try different service UUIDs
+                let service, characteristic;
+                const serviceUUIDs = [
+                    '000018f0-0000-1000-8000-00805f9b34fb',
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                    '0000ff00-0000-1000-8000-00805f9b34fb'
+                ];
+                
+                const characteristicUUIDs = [
+                    '00002af1-0000-1000-8000-00805f9b34fb',
+                    '49535343-1e4d-4bd9-ba61-23c647249616',
+                    '0000ff01-0000-1000-8000-00805f9b34fb'
+                ];
+
+                for (const serviceUUID of serviceUUIDs) {
+                    try {
+                        service = await server.getPrimaryService(serviceUUID);
+                        for (const charUUID of characteristicUUIDs) {
+                            try {
+                                characteristic = await service.getCharacteristic(charUUID);
+                                break;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                        if (characteristic) break;
+                    } catch (e) {
+                        continue;
+                    }
+                }
+
+                if (!characteristic) {
+                    throw new Error('Tidak dapat menemukan karakteristik printer yang sesuai');
+                }
+                
+                // Generate receipt data
+                const receiptData = generateReceiptData();
+                await characteristic.writeValue(new TextEncoder().encode(receiptData));
+                
+                showAlert('Struk berhasil dicetak via Bluetooth', 'success');
+                
+            } catch (error) {
+                console.error('Bluetooth printing failed:', error);
+                
+                let errorMessage = 'Gagal mencetak via Bluetooth: ';
+                
+                if (error.name === 'NotFoundError') {
+                    errorMessage += 'Tidak ada printer Bluetooth yang ditemukan atau dipilih';
+                } else if (error.name === 'SecurityError') {
+                    errorMessage += 'Akses Bluetooth ditolak. Pastikan situs menggunakan HTTPS';
+                } else if (error.name === 'NetworkError') {
+                    errorMessage += 'Gagal terhubung ke printer. Pastikan printer dalam jangkauan dan aktif';
+                } else if (error.message.includes('GATT')) {
+                    errorMessage += 'Printer tidak mendukung koneksi GATT';
+                } else if (error.message.includes('karakteristik')) {
+                    errorMessage += 'Printer tidak kompatibel dengan sistem';
+                } else {
+                    errorMessage += error.message || 'Kesalahan tidak diketahui';
+                }
+                
+                showAlert(errorMessage, 'error');
+                
+                // Fallback to browser print
+                setTimeout(() => {
+                    showAlert('Menggunakan print browser sebagai alternatif', 'info');
+                    printReceiptBrowser();
+                }, 2000);
+            }
+        }
+
+        function generateReceiptData() {
+            const storeName = document.getElementById('receiptStoreName').textContent;
+            const storeAddress = document.getElementById('receiptStoreAddress').textContent;
+            const storePhone = document.getElementById('receiptStorePhone').textContent;
+            const receiptNumber = document.getElementById('receiptNumber').textContent;
+            const receiptDate = document.getElementById('receiptDate').textContent;
+            const receiptPlate = document.getElementById('receiptPlate').textContent;
+            const receiptService = document.getElementById('receiptService').textContent;
+            const receiptPrice = document.getElementById('receiptPrice').textContent;
+            const receiptTotal = document.getElementById('receiptTotal').textContent;
+            const receiptFooter = document.getElementById('receiptFooter').textContent;
+            
+            return `
+${storeName}
+${storeAddress}
+${storePhone}
+--------------------------------
+No: ${receiptNumber}
+Tanggal: ${receiptDate}
+Plat: ${receiptPlate}
+--------------------------------
+${receiptService}        ${receiptPrice}
+--------------------------------
+TOTAL           ${receiptTotal}
+--------------------------------
+${receiptFooter}
+
+`;
+        }
+
+        // Service Management Functions
+        function showServiceModal(serviceId = null) {
+            editingServiceId = serviceId;
+            
+            if (serviceId) {
+                loadServiceForEdit(serviceId);
+                document.getElementById('serviceModalTitle').textContent = 'Edit Jasa';
+            } else {
+                document.getElementById('serviceModalTitle').textContent = 'Tambah Jasa Baru';
+                document.getElementById('serviceForm').reset();
+            }
+            
+            document.getElementById('serviceModal').classList.remove('hidden');
+            document.getElementById('serviceModal').classList.add('flex');
+        }
+
+        async function loadServiceForEdit(serviceId) {
+            try {
+                const { data, error } = await supabase
+                    .from('services')
+                    .select('*')
+                    .eq('id', serviceId)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('serviceName').value = data.name;
+                document.getElementById('servicePrice').value = data.price;
+                
+            } catch (error) {
+                console.error('Error loading service for edit:', error);
+            }
+        }
+
+        function closeServiceModal() {
+            document.getElementById('serviceModal').classList.add('hidden');
+            document.getElementById('serviceModal').classList.remove('flex');
+            editingServiceId = null;
+        }
+
+        function setServicePrice(price) {
+            document.getElementById('servicePrice').value = price;
+        }
+
+        async function saveService(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('serviceName').value;
+            const price = parseInt(document.getElementById('servicePrice').value);
+            
+            try {
+                if (editingServiceId) {
+                    const { error } = await supabase
+                        .from('services')
+                        .update({ name, price })
+                        .eq('id', editingServiceId);
+                    
+                    if (error) throw error;
+                    showAlert('Jasa berhasil diperbarui', 'success');
+                } else {
+                    const { error } = await supabase
+                        .from('services')
+                        .insert([{ name, price }]);
+                    
+                    if (error) throw error;
+                    showAlert('Jasa berhasil ditambahkan', 'success');
+                }
+                
+                closeServiceModal();
+                await loadServices();
+                
+            } catch (error) {
+                console.error('Error saving service:', error);
+                showAlert('Gagal menyimpan jasa', 'error');
+            }
+        }
+
+        async function deleteService(serviceId) {
+            try {
+                const { error } = await supabase
+                    .from('services')
+                    .update({ is_active: false })
+                    .eq('id', serviceId);
+                
+                if (error) throw error;
+                
+                showAlert('Jasa berhasil dihapus', 'success');
+                await loadServices();
+                
+            } catch (error) {
+                console.error('Error deleting service:', error);
+                showAlert('Gagal menghapus jasa', 'error');
+            }
+        }
+
+        // Employee Management Functions
+        function showEmployeeModal(employeeId = null) {
+            editingEmployeeId = employeeId;
+            
+            if (employeeId) {
+                loadEmployeeForEdit(employeeId);
+                document.getElementById('employeeModalTitle').textContent = 'Edit Karyawan';
+            } else {
+                document.getElementById('employeeModalTitle').textContent = 'Tambah Karyawan Baru';
+                document.getElementById('employeeForm').reset();
+            }
+            
+            document.getElementById('employeeModal').classList.remove('hidden');
+            document.getElementById('employeeModal').classList.add('flex');
+        }
+
+        async function loadEmployeeForEdit(employeeId) {
+            try {
+                const { data, error } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('id', employeeId)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('employeeName').value = data.name;
+                document.getElementById('employeePhone').value = data.phone || '';
+                
+            } catch (error) {
+                console.error('Error loading employee for edit:', error);
+            }
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+            document.getElementById('employeeModal').classList.remove('flex');
+            editingEmployeeId = null;
+        }
+
+        async function saveEmployee(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('employeeName').value;
+            const phone = document.getElementById('employeePhone').value;
+            
+            try {
+                if (editingEmployeeId) {
+                    const { error } = await supabase
+                        .from('employees')
+                        .update({ name, phone })
+                        .eq('id', editingEmployeeId);
+                    
+                    if (error) throw error;
+                    showAlert('Karyawan berhasil diperbarui', 'success');
+                } else {
+                    const { error } = await supabase
+                        .from('employees')
+                        .insert([{ name, phone, is_present: false, is_active: true }]);
+                    
+                    if (error) throw error;
+                    showAlert('Karyawan berhasil ditambahkan', 'success');
+                }
+                
+                closeEmployeeModal();
+                await loadEmployees();
+                
+            } catch (error) {
+                console.error('Error saving employee:', error);
+                showAlert('Gagal menyimpan karyawan', 'error');
+            }
+        }
+
+        async function deleteEmployee(employeeId) {
+            try {
+                const { error } = await supabase
+                    .from('employees')
+                    .delete()
+                    .eq('id', employeeId);
+                
+                if (error) throw error;
+                
+                showAlert('Karyawan berhasil dihapus', 'success');
+                await loadEmployees();
+                await loadDashboardData();
+                
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+                showAlert('Gagal menghapus karyawan', 'error');
+            }
+        }
+
+        async function toggleEmployeePresence(employeeId, isPresent) {
+            try {
+                const { error } = await supabase
+                    .from('employees')
+                    .update({ is_present: isPresent })
+                    .eq('id', employeeId);
+                
+                if (error) throw error;
+                
+                await loadEmployees();
+                await loadDashboardData();
+                await checkEmployeeValidation();
+                await loadPresentEmployees();
+                
+            } catch (error) {
+                console.error('Error updating employee presence:', error);
+                showAlert('Gagal mengupdate kehadiran', 'error');
+            }
+        }
+
+        async function updateSalarySettings() {
+            const salaryPerMotor = document.getElementById('salaryPerMotor').value;
+            
+            try {
+                const { error } = await supabase
+                    .from('salary_settings')
+                    .upsert([{ id: 1, salary_per_motor: parseInt(salaryPerMotor) }]);
+                
+                if (error) throw error;
+                
+                showAlert('Pengaturan gaji berhasil disimpan', 'success');
+                await updateSalarySummary();
+                
+            } catch (error) {
+                console.error('Error updating salary settings:', error);
+                showAlert('Gagal menyimpan pengaturan gaji', 'error');
+            }
+        }
+
+        async function updateSalarySummary() {
+            try {
+                const { data: presentEmployees } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('is_present', true)
+                    .eq('is_active', true);
+                
+                const today = new Date().toISOString().split('T')[0];
+                const { data: todayTransactions } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('status', 'paid')
+                    .gte('created_at', today + 'T00:00:00')
+                    .lt('created_at', today + 'T23:59:59');
+                
+                const presentCount = presentEmployees?.length || 0;
+                const transactionCount = todayTransactions?.length || 0;
+                const salaryPerMotor = parseInt(document.getElementById('salaryPerMotor').value) || 7000;
+                
+                const salaryPerEmployee = presentCount > 0 ? (transactionCount * salaryPerMotor) / presentCount : 0;
+                const totalSalary = salaryPerEmployee * presentCount;
+                
+                document.getElementById('presentCount').textContent = presentCount;
+                document.getElementById('totalTransactions').textContent = transactionCount;
+                document.getElementById('salaryPerEmployee').textContent = formatCurrency(salaryPerEmployee);
+                document.getElementById('totalSalary').textContent = formatCurrency(totalSalary);
+                
+            } catch (error) {
+                console.error('Error updating salary summary:', error);
+            }
+        }
+
+        async function markAllPresent() {
+            try {
+                const { error } = await supabase
+                    .from('employees')
+                    .update({ is_present: true })
+                    .eq('is_active', true);
+                
+                if (error) throw error;
+                
+                showAlert('Semua karyawan aktif telah ditandai hadir', 'success');
+                await loadEmployees();
+                await loadDashboardData();
+                await checkEmployeeValidation();
+                await loadPresentEmployees();
+                
+            } catch (error) {
+                console.error('Error marking all present:', error);
+                showAlert('Gagal menandai kehadiran semua karyawan', 'error');
+            }
+        }
+
+        async function markAllAbsent() {
+            try {
+                const { error } = await supabase
+                    .from('employees')
+                    .update({ is_present: false })
+                    .eq('is_active', true);
+                
+                if (error) throw error;
+                
+                showAlert('Semua karyawan telah ditandai tidak hadir', 'success');
+                await loadEmployees();
+                await loadDashboardData();
+                await checkEmployeeValidation();
+                await loadPresentEmployees();
+                
+            } catch (error) {
+                console.error('Error marking all absent:', error);
+                showAlert('Gagal menandai ketidakhadiran semua karyawan', 'error');
+            }
+        }
+
+        // User Management Functions
+        function showUserModal(userId = null) {
+            editingUserId = userId;
+            
+            if (userId) {
+                loadUserForEdit(userId);
+                document.getElementById('userModalTitle').textContent = 'Edit User';
+            } else {
+                document.getElementById('userModalTitle').textContent = 'Tambah User Baru';
+                document.getElementById('userForm').reset();
+            }
+            
+            document.getElementById('userModal').classList.remove('hidden');
+            document.getElementById('userModal').classList.add('flex');
+        }
+
+        async function loadUserForEdit(userId) {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('newUsername').value = data.username;
+                document.getElementById('newPassword').value = data.password;
+                document.getElementById('userRole').value = data.role;
+                
+                const accessMenu = data.access_menu || [];
+                document.querySelectorAll('input[name="menuAccess"]').forEach(checkbox => {
+                    checkbox.checked = accessMenu.includes(checkbox.value);
+                });
+                
+                const allCheckboxes = document.querySelectorAll('input[name="menuAccess"]');
+                const checkedCheckboxes = document.querySelectorAll('input[name="menuAccess"]:checked');
+                document.getElementById('accessAll').checked = allCheckboxes.length === checkedCheckboxes.length;
+                
+            } catch (error) {
+                console.error('Error loading user for edit:', error);
+            }
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.add('hidden');
+            document.getElementById('userModal').classList.remove('flex');
+            editingUserId = null;
+        }
+
+        function toggleAllAccess() {
+            const allCheckbox = document.getElementById('accessAll');
+            const menuCheckboxes = document.querySelectorAll('input[name="menuAccess"]');
+            
+            menuCheckboxes.forEach(checkbox => {
+                checkbox.checked = allCheckbox.checked;
+            });
+        }
+
+        async function saveUser(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('userRole').value;
+            const menuAccess = Array.from(document.querySelectorAll('input[name="menuAccess"]:checked'))
+                .map(cb => cb.value);
+            
+            if (!username || !password || !role) {
+                showAlert('Semua field harus diisi!', 'error');
+                return;
+            }
+            
+            if (menuAccess.length === 0) {
+                showAlert('Pilih minimal satu akses menu!', 'error');
+                return;
+            }
+            
+            try {
+                if (editingUserId) {
+                    const { error } = await supabase
+                        .from('users')
+                        .update({ 
+                            username, 
+                            password, 
+                            role, 
+                            access_menu: menuAccess 
+                        })
+                        .eq('id', editingUserId);
+                    
+                    if (error) throw error;
+                    showAlert('User berhasil diperbarui', 'success');
+                } else {
+                    const { error } = await supabase
+                        .from('users')
+                        .insert([{ 
+                            username, 
+                            password, 
+                            role, 
+                            access_menu: menuAccess,
+                            is_active: true
+                        }]);
+                    
+                    if (error) throw error;
+                    showAlert('User berhasil ditambahkan', 'success');
+                }
+                
+                closeUserModal();
+                await loadUsers();
+                
+            } catch (error) {
+                console.error('Error saving user:', error);
+                showAlert('Gagal menyimpan user', 'error');
+            }
+        }
+
+        async function deleteUser(userId) {
+            try {
+                const { error } = await supabase
+                    .from('users')
+                    .delete()
+                    .eq('id', userId);
+                
+                if (error) throw error;
+                
+                showAlert('User berhasil dihapus', 'success');
+                await loadUsers();
+                
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showAlert('Gagal menghapus user', 'error');
+            }
+        }
+
+        async function toggleUserStatus(userId, newStatus) {
+            try {
+                const { error } = await supabase
+                    .from('users')
+                    .update({ is_active: newStatus })
+                    .eq('id', userId);
+                
+                if (error) throw error;
+                
+                showAlert(`User berhasil ${newStatus ? 'diaktifkan' : 'dinonaktifkan'}`, 'success');
+                await loadUsers();
+                
+            } catch (error) {
+                console.error('Error updating user status:', error);
+                showAlert('Gagal mengubah status user', 'error');
+            }
+        }
+
+        // Settings Functions
+        async function saveStoreSettings(e) {
+            e.preventDefault();
+            
+            const settings = {
+                name: document.getElementById('storeName').value,
+                address: document.getElementById('storeAddress').value,
+                phone: document.getElementById('storePhone').value,
+                email: document.getElementById('storeEmail').value,
+                footer_message: document.getElementById('receiptFooterMessage').value,
+                margin_top: parseInt(document.getElementById('marginTop').value),
+                margin_left: parseInt(document.getElementById('marginLeft').value),
+                margin_right: parseInt(document.getElementById('marginRight').value),
+                margin_bottom: parseInt(document.getElementById('marginBottom').value),
+                font: document.getElementById('receiptFont').value
+            };
+            
+            try {
+                const { error } = await supabase
+                    .from('store_settings')
+                    .upsert([{ id: 1, ...settings }]);
+                
+                if (error) throw error;
+                
+                // Update receipt preview
+                document.getElementById('receiptStoreName').textContent = settings.name;
+                document.getElementById('receiptStoreAddress').textContent = settings.address;
+                document.getElementById('receiptStorePhone').textContent = 'Telp: ' + settings.phone;
+                document.getElementById('receiptFooter').textContent = settings.footer_message;
+                
+                showAlert('Pengaturan toko berhasil disimpan', 'success');
+                
+            } catch (error) {
+                console.error('Error saving store settings:', error);
+                showAlert('Gagal menyimpan pengaturan toko', 'error');
+            }
+        }
+
+        // Transaction View Functions
+        function switchTransactionView(view) {
+            console.log('🔄 Switching to view:', view);
+            currentTransactionView = view;
+            currentPage = 1;
+            
+            // Update status filter dropdown
+            document.getElementById('statusFilter').value = view;
+            
+            // Update tab buttons
+            updateTabButtons();
+            
+            // Load transactions for the new view
+            loadTransactions();
+        }
+
+        function updateTabButtons() {
+            // Reset all tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Activate current tab
+            const activeTabId = currentTransactionView === 'paid' ? 'paidTabBtn' : 'unpaidTabBtn';
+            const activeTab = document.getElementById(activeTabId);
+            if (activeTab) {
+                activeTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+                activeTab.classList.remove('border-transparent', 'text-gray-500');
+            }
+            
+            // Show/hide payment filter based on current view
+            const paymentFilter = document.getElementById('paymentFilter');
+            if (currentTransactionView === 'paid') {
+                paymentFilter.style.display = 'block';
+            } else {
+                paymentFilter.style.display = 'none';
+                paymentFilter.value = ''; // Reset filter when switching to unpaid
+            }
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(totalTransactions / rowsPerPage);
+            const paginationContainer = document.getElementById('transactionsPagination');
+            
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // Previous button
+            if (currentPage > 1) {
+                paginationHTML += `
+                    <button onclick="changePage(${currentPage - 1})" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                `;
+            }
+            
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                paginationHTML += `
+                    <button onclick="changePage(1)" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">1</button>
+                `;
+                if (startPage > 2) {
+                    paginationHTML += '<span class="px-2 text-gray-500">...</span>';
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const isActive = i === currentPage;
+                paginationHTML += `
+                    <button onclick="changePage(${i})" class="px-3 py-2 text-sm ${isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} border border-gray-300 rounded-lg">
+                        ${i}
+                    </button>
+                `;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += '<span class="px-2 text-gray-500">...</span>';
+                }
+                paginationHTML += `
+                    <button onclick="changePage(${totalPages})" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">${totalPages}</button>
+                `;
+            }
+            
+            // Next button
+            if (currentPage < totalPages) {
+                paginationHTML += `
+                    <button onclick="changePage(${currentPage + 1})" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                `;
+            }
+            
+            paginationContainer.innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadTransactions();
+        }
+
+        async function payTransaction(transactionId) {
+            try {
+                console.log('💳 Processing payment for transaction ID:', transactionId);
+                
+                const { data: transaction, error } = await supabase
+                    .from('transactions')
+                    .select('*, services(name)')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (error) {
+                    console.error('❌ Error fetching transaction:', error);
+                    throw error;
+                }
+                
+                if (!transaction) {
+                    console.error('❌ Transaction not found for ID:', transactionId);
+                    showAlert('Transaksi tidak ditemukan', 'error');
+                    return;
+                }
+                
+                console.log('✅ Transaction loaded for payment:', transaction);
+                
+                currentTransaction = {
+                    ...transaction,
+                    id: transactionId,
+                    status: 'paid'
+                };
+                
+                console.log('💰 Opening payment modal for:', currentTransaction);
+                showPaymentModal();
+                
+            } catch (error) {
+                console.error('❌ Error loading transaction for payment:', error);
+                showAlert(`Gagal memuat data transaksi: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteTransaction(transactionId) {
+            // Use custom modal instead of confirm() due to sandbox restrictions
+            showDeleteConfirmModal(transactionId);
+        }
+
+        function showDeleteConfirmModal(transactionId) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Konfirmasi Hapus</h3>
+                    <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus transaksi ini?</p>
+                    
+                    <div class="flex space-x-3">
+                        <button onclick="closeDeleteModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">
+                            Batal
+                        </button>
+                        <button onclick="confirmDeleteTransaction(${transactionId})" class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200">
+                            <i class="fas fa-trash mr-2"></i>Hapus
+                        </button>
+                    </div>
+                </div>
+            `;
+            modal.id = 'deleteConfirmModal';
+            document.body.appendChild(modal);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        async function confirmDeleteTransaction(transactionId) {
+            closeDeleteModal();
+            
+            try {
+                console.log('Deleting transaction ID:', transactionId);
+                
+                // First check if transaction exists
+                const { data: existingTransaction, error: checkError } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (checkError) {
+                    console.error('Transaction check error:', checkError);
+                    throw new Error('Transaksi tidak ditemukan');
+                }
+                
+                console.log('Transaction found:', existingTransaction);
+                
+                // Delete the transaction
+                const { error } = await supabase
+                    .from('transactions')
+                    .delete()
+                    .eq('id', transactionId);
+                
+                if (error) {
+                    console.error('Delete error:', error);
+                    throw error;
+                }
+                
+                console.log('Transaction deleted successfully');
+                showAlert('Transaksi berhasil dihapus', 'success');
+                
+                // Reload transactions and dashboard data
+                await Promise.all([
+                    loadTransactions(),
+                    loadDashboardData()
+                ]);
+                
+            } catch (error) {
+                console.error('Error deleting transaction:', error);
+                showAlert(`Gagal menghapus transaksi: ${error.message}`, 'error');
+            }
+        }
+
+        // Edit Transaction Functions
+        function showEditTransactionModal(transactionId) {
+            editingTransactionId = transactionId;
+            loadTransactionForEdit(transactionId);
+            document.getElementById('editTransactionModal').classList.remove('hidden');
+            document.getElementById('editTransactionModal').classList.add('flex');
+        }
+
+        async function loadTransactionForEdit(transactionId) {
+            try {
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .select('*, services(name)')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('editPlateNumber').value = data.plate_number || '';
+                document.getElementById('editTransactionNotes').value = data.notes || '';
+                document.getElementById('editPrice').value = data.price;
+                
+                // Set vehicle search field
+                if (data.services) {
+                    document.getElementById('editVehicleSearch').value = data.services.name;
+                    document.getElementById('editVehicleSearch').dataset.selectedName = data.services.name.toLowerCase();
+                    document.getElementById('editSelectedServiceId').value = data.service_id;
+                }
+                
+            } catch (error) {
+                console.error('Error loading transaction for edit:', error);
+            }
+        }
+
+        function closeEditTransactionModal() {
+            document.getElementById('editTransactionModal').classList.add('hidden');
+            document.getElementById('editTransactionModal').classList.remove('flex');
+            editingTransactionId = null;
+            
+            // Reset form
+            document.getElementById('editTransactionForm').reset();
+            document.getElementById('editVehicleSearch').value = '';
+            document.getElementById('editVehicleSearch').dataset.selectedName = '';
+            document.getElementById('editSelectedServiceId').value = '';
+            hideEditVehicleDropdown();
+        }
+
+        async function saveEditTransaction(e) {
+            e.preventDefault();
+            
+            const plateNumber = document.getElementById('editPlateNumber').value;
+            const serviceId = document.getElementById('editSelectedServiceId').value;
+            const price = document.getElementById('editPrice').value;
+            const notes = document.getElementById('editTransactionNotes').value.trim();
+            
+            if (!serviceId || !price) {
+                showAlert('Mohon pilih jenis kendaraan terlebih dahulu', 'error');
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('transactions')
+                    .update({
+                        plate_number: plateNumber || null,
+                        service_id: parseInt(serviceId),
+                        price: parseInt(price),
+                        notes: notes || null
+                    })
+                    .eq('id', editingTransactionId);
+                
+                if (error) throw error;
+                
+                showAlert('Transaksi berhasil diperbarui', 'success');
+                closeEditTransactionModal();
+                await loadTransactions();
+                
+            } catch (error) {
+                console.error('Error updating transaction:', error);
+                showAlert('Gagal memperbarui transaksi', 'error');
+            }
+        }
+
+        // Helper Functions
+        async function getCurrentEmployeeName() {
+            try {
+                const { data: presentEmployees } = await supabase
+                    .from('employees')
+                    .select('name')
+                    .eq('is_present', true)
+                    .eq('is_active', true)
+                    .limit(1);
+                
+                return presentEmployees && presentEmployees.length > 0 
+                    ? presentEmployees[0].name 
+                    : 'Karyawan hadir';
+            } catch (error) {
+                return 'Karyawan hadir';
+            }
+        }
+
+        function createServiceItem(service) {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg';
+            div.innerHTML = `
+                <div>
+                    <h4 class="font-medium">${service.name}</h4>
+                    <p class="text-sm text-gray-600">${formatCurrency(service.price)}</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="showServiceModal(${service.id})" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteService(${service.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            return div;
+        }
+
+        function createEmployeeItem(employee) {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg';
+            div.innerHTML = `
+                <div>
+                    <h4 class="font-medium">${employee.name}</h4>
+                    <p class="text-sm text-gray-600">${employee.phone || 'Tidak ada nomor telepon'}</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <label class="flex items-center">
+                        <input type="checkbox" ${employee.is_present ? 'checked' : ''} 
+                               onchange="toggleEmployeePresence(${employee.id}, this.checked)"
+                               class="mr-2">
+                        <span class="text-sm">${employee.is_present ? 'Hadir' : 'Tidak Hadir'}</span>
+                    </label>
+                    <div class="flex space-x-2">
+                        <button onclick="showEmployeeModal(${employee.id})" class="text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteEmployee(${employee.id})" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function createUserItem(user) {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg';
+            
+            const accessText = user.access_menu && user.access_menu.length > 0 
+                ? user.access_menu.join(', ') 
+                : 'Tidak ada akses';
+            
+            const statusBadge = user.is_active 
+                ? '<span class="inline-block px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Aktif</span>'
+                : '<span class="inline-block px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Nonaktif</span>';
+            
+            div.innerHTML = `
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h4 class="font-medium">${user.username}</h4>
+                        ${statusBadge}
+                    </div>
+                    <p class="text-sm text-gray-600">Jabatan: ${user.role}</p>
+                    <p class="text-xs text-gray-500">Akses: ${accessText}</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="showUserModal(${user.id})" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="toggleUserStatus(${user.id}, ${!user.is_active})" class="text-yellow-600 hover:text-yellow-800">
+                        <i class="fas fa-${user.is_active ? 'user-slash' : 'user-check'}"></i>
+                    </button>
+                    <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            return div;
+        }
+
+        function createTransactionItem(transaction, isPaid, rowNumber) {
+            const div = document.createElement('div');
+            div.className = `p-4 border rounded-lg transition-all duration-200 hover:shadow-md ${
+                isPaid ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'
+            }`;
+            div.dataset.paymentMethod = transaction.payment_method || '';
+            
+            const serviceName = transaction.services?.name || 'Layanan Tidak Diketahui';
+            const plateNumber = transaction.plate_number || 'Tanpa Plat Nomor';
+            const date = new Date(transaction.created_at).toLocaleDateString('id-ID');
+            const time = new Date(transaction.created_at).toLocaleTimeString('id-ID', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            // Status badge
+            let statusBadge = '';
+            if (isPaid) {
+                const methods = {
+                    cash: { name: 'Tunai', color: 'bg-green-100 text-green-800', icon: 'fas fa-money-bill-wave' },
+                    transfer: { name: 'Transfer', color: 'bg-blue-100 text-blue-800', icon: 'fas fa-university' },
+                    qris: { name: 'QRIS', color: 'bg-purple-100 text-purple-800', icon: 'fas fa-qrcode' }
+                };
+                const method = methods[transaction.payment_method] || { name: 'Paid', color: 'bg-green-100 text-green-800', icon: 'fas fa-check' };
+                statusBadge = `
+                    <span class="inline-flex items-center px-2 py-1 text-xs rounded-full ${method.color}">
+                        <i class="${method.icon} mr-1"></i>
+                        ${method.name}
+                    </span>
+                `;
+            } else {
+                statusBadge = `
+                    <span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
+                        <i class="fas fa-clock mr-1"></i>
+                        Belum Bayar
+                    </span>
+                `;
+            }
+            
+            // Notes display
+            const notesDisplay = transaction.notes ? 
+                `<div class="text-xs text-gray-600 mt-1 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <i class="fas fa-sticky-note mr-1"></i>
+                    <strong>Catatan:</strong> ${transaction.notes}
+                </div>` : '';
+            
+            // Employee names display
+            const employeeNamesDisplay = transaction.employee_names && transaction.employee_names.length > 0 
+                ? `<div class="text-xs text-blue-600 mt-1 p-2 bg-blue-50 border border-blue-200 rounded">
+                    <i class="fas fa-users mr-1"></i>
+                    <strong>Karyawan:</strong> ${transaction.employee_names.join(', ')}
+                </div>` : '';
+            
+            // Different button sets for paid vs unpaid
+            let actionButtons = '';
+            if (isPaid) {
+                actionButtons = `
+                    <div class="flex items-center space-x-1">
+                        <button onclick="showEditTransactionModal(${transaction.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-100 transition-colors" title="Edit Transaksi">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="printTransactionReceipt(${transaction.id})" class="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-100 transition-colors" title="Cetak Struk">
+                            <i class="fas fa-print"></i>
+                        </button>
+                        <button onclick="deleteTransaction(${transaction.id})" class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-100 transition-colors" title="Hapus Transaksi">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            } else {
+                actionButtons = `
+                    <div class="flex items-center space-x-2">
+                        <button onclick="payTransaction(${transaction.id})" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium" title="Bayar Sekarang">
+                            <i class="fas fa-credit-card mr-2"></i>Bayar
+                        </button>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="showEditTransactionModal(${transaction.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-100 transition-colors" title="Edit Transaksi">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteTransaction(${transaction.id})" class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-100 transition-colors" title="Hapus Transaksi">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            div.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                        <!-- Nomor Urut dan Jenis Kendaraan (Atas) -->
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-3">
+                                <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 text-sm font-bold rounded-full">
+                                    ${rowNumber}
+                                </span>
+                                <h3 class="text-lg font-bold text-gray-900">${serviceName}</h3>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        <!-- Nomor Polisi (Tengah) -->
+                        <div class="mb-2">
+                            <p class="text-base font-medium text-gray-700">
+                                <i class="fas fa-car mr-2 text-gray-500"></i>
+                                ${plateNumber}
+                            </p>
+                        </div>
+                        
+                        <!-- Info Bawah -->
+                        <div class="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                            <span><i class="fas fa-calendar mr-1"></i>${date}</span>
+                            <span><i class="fas fa-clock mr-1"></i>${time}</span>
+                        </div>
+                        
+                        <!-- Catatan -->
+                        ${notesDisplay}
+                        
+                        <!-- Karyawan -->
+                        ${employeeNamesDisplay}
+                    </div>
+                    
+                    <!-- Harga dan Aksi -->
+                    <div class="text-right ml-4 flex-shrink-0">
+                        <p class="font-bold text-2xl ${isPaid ? 'text-green-600' : 'text-orange-600'} mb-3">
+                            ${formatCurrency(transaction.price)}
+                        </p>
+                        ${actionButtons}
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        async function printTransactionReceipt(transactionId) {
+            try {
+                const { data: transaction, error } = await supabase
+                    .from('transactions')
+                    .select('*, services(name)')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (error) throw error;
+                
+                // Update receipt preview with transaction data
+                document.getElementById('receiptPlate').textContent = transaction.plate_number || '-';
+                document.getElementById('receiptService').textContent = transaction.services?.name || 'Layanan';
+                document.getElementById('receiptPrice').textContent = formatCurrency(transaction.price);
+                document.getElementById('receiptTotal').textContent = formatCurrency(transaction.price);
+                
+                // Always use browser print due to sandbox restrictions
+                printReceiptBrowser();
+                
+            } catch (error) {
+                console.error('Error printing transaction receipt:', error);
+                showAlert('Gagal mencetak struk', 'error');
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            
+            alert.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${
+                        type === 'success' ? 'check-circle' :
+                        type === 'error' ? 'exclamation-circle' :
+                        type === 'warning' ? 'exclamation-triangle' :
+                        'info-circle'
+                    } mr-3"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Close sidebar when clicking overlay
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'sidebarOverlay') {
+                toggleSidebar();
+            }
+        });
+
+        // Handle window resize for responsive sidebar
+        window.addEventListener('resize', function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth >= 1024) {
+                // Desktop: show sidebar, hide overlay
+                sidebar.classList.remove('-translate-x-full');
+                sidebar.classList.add('translate-x-0');
+                overlay.classList.add('hidden');
+            } else {
+                // Mobile/Tablet: hide sidebar by default
+                if (!overlay.classList.contains('hidden')) {
+                    // If overlay is visible, keep sidebar open
+                    sidebar.classList.remove('-translate-x-full');
+                    sidebar.classList.add('translate-x-0');
+                } else {
+                    // Hide sidebar
+                    sidebar.classList.add('-translate-x-full');
+                    sidebar.classList.remove('translate-x-0');
+                }
+            }
+        });
+    </script>
+    <script>
+
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'980ec7c296559cdb',t:'MTc1ODE3Njg3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
